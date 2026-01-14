@@ -1,0 +1,15 @@
+.no-input-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  min-height: 400px;
+  padding: 2rem;
+}
+
+.no-input-message p {
+  color: #999;
+  font-size: 1.1rem;
+  margin: 0;
+}

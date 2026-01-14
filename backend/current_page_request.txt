@@ -1,0 +1,1 @@
+Create a new page with header and footer that says Welcome to the Demo as the Title, with a caption that says just for Motherson and nothing else. Make it as beautiful as possible

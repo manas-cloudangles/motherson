@@ -1,0 +1,7 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 200'>
+  <g fill='none' stroke='#CFCFCF' stroke-width='28' stroke-linecap='round' stroke-linejoin='round'>
+    <path d='M100 60 L60 100 L100 140'/>
+    <path d='M200 60 L240 100 L200 140'/>
+    <path d='M170 40 L130 160'/>
+  </g>
+</svg>
