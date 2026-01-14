@@ -36,10 +36,12 @@ class ComponentSelectRequest(BaseModel):
 
 class ComponentSelectResponse(BaseModel):
     status: str
-    all_components: List[Dict]
-    selected_component_ids: List[str]
-    reasoning: Dict[str, str]
-    selected_components: List[Dict]
+    components: List[Dict]  # All components with required field
+    
+class UpdateComponentRequest(BaseModel):
+    componentId: str
+    required: bool
+    reasoning: Optional[str] = None
 
 class GeneratePageRequest(BaseModel):
     pageRequest: str
@@ -191,7 +193,7 @@ async def select_components(request_data: ComponentSelectRequest):
     
     - **pageRequest**: User's page generation request
     
-    Returns selected component IDs, reasoning, and full metadata.
+    Returns all components with required field and reasoning.
     """
     try:
         page_request = request_data.pageRequest or load_page_request()
@@ -220,20 +222,28 @@ async def select_components(request_data: ComponentSelectRequest):
         if not selection_data:
             raise HTTPException(status_code=500, detail="Failed to select components")
         
-        # Get full metadata for selected components
-        selected_components = get_selected_components_with_metadata(
-            selection_data,
-            component_metadata
-        )
+        selected_ids = set(selection_data['selected_components'])
+        reasoning_map = selection_data['reasoning']
         
-        print(f"✓ Selected {len(selected_components)} components")
+        # Add required field and reasoning to all components
+        components_with_required = []
+        for comp in component_metadata:
+            comp_id = comp.get('id_name')
+            is_required = comp_id in selected_ids
+            
+            comp_with_flags = comp.copy()
+            comp_with_flags['required'] = is_required
+            comp_with_flags['reasoning'] = reasoning_map.get(comp_id, '') if is_required else ''
+            components_with_required.append(comp_with_flags)
+        
+        # Save updated metadata with required flags
+        save_metadata(components_with_required)
+        
+        print(f"✓ Selected {len(selected_ids)} components")
         
         return {
             "status": "success",
-            "all_components": component_metadata,
-            "selected_component_ids": selection_data['selected_components'],
-            "reasoning": selection_data['reasoning'],
-            "selected_components": selected_components
+            "components": components_with_required
         }
         
     except HTTPException:
@@ -245,13 +255,69 @@ async def select_components(request_data: ComponentSelectRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post('/api/update-component', tags=["Components"])
+async def update_component(request_data: UpdateComponentRequest):
+    """
+    Update component's required status and reasoning.
+    
+    - **componentId**: Component ID to update
+    - **required**: Whether component is required
+    - **reasoning**: Optional reasoning for the selection
+    
+    Returns updated component metadata.
+    """
+    try:
+        # Load metadata from file
+        component_metadata = load_metadata()
+        
+        if not component_metadata:
+            raise HTTPException(
+                status_code=400,
+                detail="No component metadata available. Please upload components first."
+            )
+        
+        # Find and update the component
+        component_found = False
+        for comp in component_metadata:
+            if comp.get('id_name') == request_data.componentId:
+                comp['required'] = request_data.required
+                if request_data.reasoning is not None:
+                    comp['reasoning'] = request_data.reasoning
+                elif not request_data.required:
+                    comp['reasoning'] = ''
+                component_found = True
+                break
+        
+        if not component_found:
+            raise HTTPException(status_code=404, detail=f"Component {request_data.componentId} not found")
+        
+        # Save updated metadata
+        save_metadata(component_metadata)
+        
+        print(f"✓ Updated component {request_data.componentId}: required={request_data.required}")
+        
+        return {
+            "status": "success",
+            "message": f"Component {request_data.componentId} updated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in update_component: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post('/api/generate-page', response_model=GeneratePageResponse, tags=["Generation"])
 async def generate_page(request_data: GeneratePageRequest):
     """
     Generate Angular page code (HTML, SCSS, TypeScript).
+    Uses components marked as required in metadata.
     
     - **pageRequest**: User's page generation request
-    - **selectedComponentIds**: Optional list of component IDs to use
+    - **selectedComponentIds**: Optional list of component IDs to use (overrides required flags)
     
     Returns generated HTML, SCSS, and TypeScript code.
     """
@@ -271,20 +337,33 @@ async def generate_page(request_data: GeneratePageRequest):
                 detail="No component metadata available. Please upload components first."
             )
         
-        # Filter metadata to only include selected components if provided
-        metadata_to_use = component_metadata
+        # Filter to only include required components or explicitly selected ones
         if selected_ids:
+            # Use explicitly provided IDs
             metadata_to_use = [
                 comp for comp in component_metadata
-                if comp.get('id_name') in selected_ids or comp.get('name') in selected_ids
+                if comp.get('id_name') in selected_ids
             ]
-            print(f"Using {len(metadata_to_use)} selected components")
+            print(f"Using {len(metadata_to_use)} explicitly selected components")
+        else:
+            # Use components marked as required
+            metadata_to_use = [
+                comp for comp in component_metadata
+                if comp.get('required', False)
+            ]
+            print(f"Using {len(metadata_to_use)} required components")
+        
+        if not metadata_to_use:
+            raise HTTPException(
+                status_code=400,
+                detail="No components selected. Please select at least one component."
+            )
         
         print(f"\n{'='*60}")
         print("GENERATING PAGE")
         print(f"{'='*60}")
         print(f"Request: {page_request[:100]}...")
-        print(f"Loaded {len(component_metadata)} components from file")
+        print(f"Using {len(metadata_to_use)} components")
         
         # Native async - no event loop needed!
         pipeline = PageGenerationPipeline(component_metadata=metadata_to_use)
