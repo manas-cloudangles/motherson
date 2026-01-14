@@ -72,7 +72,7 @@ function DownloadPage() {
       return
     }
 
-    // If we already have content in appData, use it and generate preview
+    // Use pre-generated content from appData (generated in ElementsPage)
     if (appData.generatedFiles?.html && appData.generatedFiles?.css && appData.generatedFiles?.ts) {
       const { html, css, ts } = appData.generatedFiles
       setHtmlContent(html)
@@ -81,113 +81,12 @@ function DownloadPage() {
       const preview = generatePreviewContent(html, css, ts)
       setPreviewContent(preview)
       setIsLoading(false)
-      return
+    } else {
+      // This should not happen if the flow is correct
+      console.error('No generated files found in appData')
+      setIsLoading(false)
     }
-
-    // Fetch or generate Angular component files from backend
-    const generateFiles = async () => {
-      setIsLoading(true)
-      try {
-        // TODO: Replace with actual backend API endpoint
-        // const response = await fetch('/api/generate-component', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     dev_request: appData.devRequest,
-        //     selected_components: appData.selectedComponents
-        //   })
-        // })
-        // const data = await response.json()
-        
-        // For now, generate sample Angular component files
-        // Expected API response format:
-        // {
-        //   html: '<div>...</div>',
-        //   css: '.container { ... }',
-        //   ts: 'import { Component } from ...'
-        // }
-        
-        const sampleHTML = `<div class="container">
-    <h1>Welcome to My App</h1>
-    <button class="primary-button" (click)="handleClick()">Get Started</button>
-</div>`
-
-        const sampleCSS = `* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-    text-align: center;
-}
-
-h1 {
-    color: rgb(218, 32, 32);
-    margin-bottom: 2rem;
-    font-size: 2.5rem;
-}
-
-.primary-button {
-    background: rgb(218, 32, 32);
-    color: white;
-    border: none;
-    padding: 1rem 2rem;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.primary-button:hover {
-    background: rgba(218, 32, 32, 0.9);
-}`
-
-        const sampleTS = `import { Component } from '@angular/core';
-
-@Component({
-  selector: 'app-my-component',
-  templateUrl: './my-component.html',
-  styleUrls: ['./my-component.css']
-})
-export class MyComponentComponent {
-  constructor() {}
-
-  handleClick(): void {
-    console.log('Button clicked!');
-    alert('App initialized successfully!');
-  }
-}`
-
-        setHtmlContent(sampleHTML)
-        setCssContent(sampleCSS)
-        setTsContent(sampleTS)
-        
-        // Generate initial preview
-        const initialPreview = generatePreviewContent(sampleHTML, sampleCSS, sampleTS)
-        setPreviewContent(initialPreview)
-        
-        updateAppData({
-          generatedFiles: {
-            html: sampleHTML,
-            css: sampleCSS,
-            ts: sampleTS
-          }
-        })
-      } catch (error) {
-        console.error('Error generating files:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    generateFiles()
-  }, [completedPages.chat, completedPages.elements])
+  }, [completedPages.chat, completedPages.elements, appData.generatedFiles])
 
   const handleSave = () => {
     const newPreview = generatePreviewContent(htmlContent, cssContent, tsContent)

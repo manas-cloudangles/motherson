@@ -19,113 +19,127 @@ function ElementsPage() {
   useEffect(() => {
     // Fetch components from backend when page loads
     const fetchComponents = async () => {
-      if (!completedPages.chat) return
+      if (!completedPages.chat || !appData.devRequest) {
+        console.log('Skipping fetch - chat not complete or no dev request')
+        return
+      }
 
       setIsLoading(true)
       try {
-        // TODO: Replace with actual backend API endpoint
-        // const response = await fetch('/api/get-components', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     dev_request: appData.devRequest
-        //   })
-        // })
-        // const data = await response.json()
+        console.log('Fetching components with page request:', appData.devRequest)
         
-        // For now, use mock data - replace with actual API response
-        // Expected API response format:
-        // {
-        //   components: [
-        //     { id: 'button', name: 'Button', ... },
-        //     ...
-        //   ],
-        //   recommended: ['button', 'input', ...], // IDs of recommended components
-        //   reasoning: {
-        //     'button': 'Reason why button was selected...',
-        //     ...
-        //   }
-        // }
-        
-        const mockData = {
-          components: [
-            { id: 'button', name: 'Button' },
-            { id: 'input', name: 'Input Field' },
-            { id: 'card', name: 'Card' },
-            { id: 'navbar', name: 'Navigation Bar' },
-            { id: 'form', name: 'Form' },
-            { id: 'modal', name: 'Modal' },
-            { id: 'table', name: 'Table' },
-            { id: 'list', name: 'List' },
-          ],
-          recommended: ['button', 'input', 'card'],
-          reasoning: {
-            'button': 'Based on your requirement, buttons are essential for user interactions and call-to-action elements. The uploaded folder structure suggests a need for interactive elements.',
-            'input': 'Input fields are necessary for collecting user data. Your project structure indicates form-based interactions, making input components a core requirement.',
-            'card': 'Card components provide a clean way to display content in organized sections. The folder structure shows content-heavy pages that would benefit from card layouts.'
-          }
+        // Call backend API to select components based on page request
+        // This API reads component-metadata.json and adds required/reasoning fields
+        const response = await fetch('http://localhost:5000/api/select-components', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pageRequest: appData.devRequest
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.detail || `Failed to fetch components: ${response.statusText}`)
         }
 
-        setComponents(mockData.components)
-        setAiReasoning(mockData.reasoning || {})
+        const data = await response.json()
+        console.log('Components fetched from backend:', data)
         
-        // Initialize edited reasoning from appData or use AI reasoning as default
-        if (!appData.componentReasoning && mockData.reasoning) {
-          setEditedReasoning(mockData.reasoning)
-          updateAppData({ componentReasoning: mockData.reasoning })
+        // Expected API response format:
+        // {
+        //   status: 'success',
+        //   components: [
+        //     { id_name: 'button-comp', name: 'Button', required: true, reasoning: '...', ... },
+        //     { id_name: 'navbar-comp', name: 'Navbar', required: false, reasoning: '', ... },
+        //     ...
+        //   ]
+        // }
+        
+        const componentsData = data.components || []
+        
+        if (componentsData.length === 0) {
+          throw new Error('No components found. Please make sure components were analyzed in the previous step.')
         }
         
-        // Pre-select recommended components if not already selected
-        if (selectedComponents.length === 0 && mockData.recommended) {
-          const recommendedComponents = mockData.components.filter(comp => 
-            mockData.recommended.includes(comp.id)
-          )
-          setSelectedComponents(recommendedComponents.map(comp => comp.id))
-          updateAppData({ selectedComponents: recommendedComponents.map(comp => comp.id) })
-        }
+        // Transform components for UI (use id_name as id)
+        const transformedComponents = componentsData.map(comp => ({
+          id: comp.id_name,
+          name: comp.name,
+          description: comp.description || '',
+          required: comp.required || false,
+          reasoning: comp.reasoning || '',
+          ...comp
+        }))
+        
+        console.log('Transformed components:', transformedComponents)
+        setComponents(transformedComponents)
+        
+        // Build reasoning map and selected IDs based on required field
+        const reasoningMap = {}
+        const selectedIds = []
+        
+        transformedComponents.forEach(comp => {
+          if (comp.required === true) {
+            selectedIds.push(comp.id)
+            if (comp.reasoning) {
+              reasoningMap[comp.id] = comp.reasoning
+            }
+          }
+        })
+        
+        console.log('Selected components (required=true):', selectedIds)
+        console.log('Reasoning map:', reasoningMap)
+        
+        setAiReasoning(reasoningMap)
+        setEditedReasoning(reasoningMap)
+        setSelectedComponents(selectedIds)
+        
+        // Update app data
+        updateAppData({ 
+          selectedComponents: selectedIds,
+          componentReasoning: reasoningMap
+        })
+        
       } catch (error) {
         console.error('Error fetching components:', error)
+        alert(`Error: ${error.message}. Please make sure the backend server is running and components were analyzed.`)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchComponents()
-  }, [completedPages.chat])
+  }, [completedPages.chat, appData.devRequest])
 
   const toggleComponent = (componentId) => {
+    const isCurrentlySelected = selectedComponents.includes(componentId)
+    const newRequired = !isCurrentlySelected
+    
+    // Update UI state only - no API call
     setSelectedComponents(prev => {
-      const newSelection = prev.includes(componentId)
-        ? prev.filter(id => id !== componentId)
-        : [...prev, componentId]
+      const newSelection = newRequired
+        ? [...prev, componentId]
+        : prev.filter(id => id !== componentId)
       updateAppData({ selectedComponents: newSelection })
-      
-      // If component is removed, also remove its reasoning
-      if (prev.includes(componentId)) {
-        setEditedReasoning(prevReasoning => {
-          const newReasoning = { ...prevReasoning }
-          delete newReasoning[componentId]
-          updateAppData({ componentReasoning: newReasoning })
-          return newReasoning
-        })
-      } else {
-        // If component is added and has AI reasoning, initialize it
-        if (aiReasoning[componentId] && !editedReasoning[componentId]) {
-          setEditedReasoning(prevReasoning => {
-            const newReasoning = { ...prevReasoning, [componentId]: aiReasoning[componentId] }
-            updateAppData({ componentReasoning: newReasoning })
-            return newReasoning
-          })
-        }
-      }
-      
       return newSelection
     })
+    
+    // If deselecting, remove reasoning
+    if (!newRequired) {
+      setEditedReasoning(prevReasoning => {
+        const newReasoning = { ...prevReasoning }
+        delete newReasoning[componentId]
+        updateAppData({ componentReasoning: newReasoning })
+        return newReasoning
+      })
+    }
   }
 
   const handleReasoningChange = (componentId, newReasoning) => {
+    // Update local state only - no API call
     setEditedReasoning(prev => {
       const updated = { ...prev, [componentId]: newReasoning }
       updateAppData({ componentReasoning: updated })
@@ -133,15 +147,89 @@ function ElementsPage() {
     })
   }
 
-  const handleContinue = () => {
-    // Save final component reasoning before continuing
-    updateAppData({ componentReasoning: editedReasoning })
-    
-    // Mark elements page as complete when user continues
-    if (selectedComponents.length > 0) {
+  const handleContinue = async () => {
+    if (selectedComponents.length === 0) {
+      alert('Please select at least one component before continuing.')
+      return
+    }
+
+    // Save to appData first
+    updateAppData({ 
+      componentReasoning: editedReasoning,
+      selectedComponents: selectedComponents
+    })
+
+    // Batch update all components in backend
+    setIsLoading(true)
+    try {
+      // Build list of all components with their required status
+      const updatePromises = components.map(component => {
+        const isSelected = selectedComponents.includes(component.id)
+        const reasoning = editedReasoning[component.id] || ''
+        
+        return fetch('http://localhost:5000/api/update-component', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            componentId: component.id,
+            required: isSelected,
+            reasoning: isSelected ? reasoning : null
+          })
+        })
+      })
+
+      // Wait for all updates to complete
+      await Promise.all(updatePromises)
+      console.log('All components updated successfully')
+
+      // Now generate the page with the selected components
+      console.log('Generating page with selected components...')
+      const generateResponse = await fetch('http://localhost:5000/api/generate-page', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pageRequest: appData.devRequest,
+          selectedComponentIds: selectedComponents
+        })
+      })
+
+      if (!generateResponse.ok) {
+        const errorData = await generateResponse.json()
+        throw new Error(errorData.detail || 'Failed to generate page')
+      }
+
+      const generatedData = await generateResponse.json()
+      console.log('Page generated successfully:', generatedData)
+
+      // Save generated files to appData
+      updateAppData({
+        componentReasoning: editedReasoning,
+        selectedComponents: selectedComponents,
+        generatedFiles: {
+          html: generatedData.html_code || '',
+          css: generatedData.scss_code || '',
+          ts: generatedData.ts_code || ''
+        },
+        componentInfo: {
+          name: generatedData.component_name,
+          pathName: generatedData.path_name,
+          selector: generatedData.selector
+        }
+      })
+
+      // Mark elements page as complete and navigate
       markPageComplete('elements')
-      // Navigate to download page
       navigate('/download')
+      
+    } catch (error) {
+      console.error('Error updating components:', error)
+      alert(`Error: ${error.message}. Please try again.`)
+    } finally {
+      setIsLoading(false)
     }
   }
 

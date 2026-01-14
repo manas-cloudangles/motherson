@@ -7,6 +7,7 @@ function ChatPage() {
   const navigate = useNavigate()
   const { markPageComplete, updateAppData, appData } = usePageProgress()
   const [folder, setFolder] = useState(null)
+  const [folderPath, setFolderPath] = useState(appData.folderPath || '')
   const [devRequest, setDevRequest] = useState(appData.devRequest || '')
   const [isLoading, setIsLoading] = useState(false)
   const fileInputRef = useRef(null)
@@ -100,33 +101,47 @@ function ChatPage() {
   const handleFolderChange = (e) => {
     const files = Array.from(e.target.files)
     setFolder(files)
-    updateAppData({ folder: files })
+    
+    // Extract the base folder name from webkitRelativePath for display
+    // But we still need user to provide absolute path
+    if (files.length > 0) {
+      const firstFile = files[0]
+      const relativePath = firstFile.webkitRelativePath
+      const folderName = relativePath.split('/')[0]
+      // Don't auto-set folderPath - user needs to enter absolute path
+      updateAppData({ folder: files })
+    } else {
+      updateAppData({ folder: files })
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!folder || folder.length === 0 || !devRequest.trim() || isLoading) return
+    if (!folder || folder.length === 0 || !devRequest.trim() || !folderPath.trim() || isLoading) return
 
     setIsLoading(true)
-    updateAppData({ devRequest: devRequest.trim() })
+    updateAppData({ devRequest: devRequest.trim(), folderPath: folderPath.trim() })
 
     try {
-      // TODO: Replace with actual backend API endpoint
-      const formData = new FormData()
-      folder.forEach((file) => {
-        formData.append('files', file)
+      // Call backend API to analyze components
+      const response = await fetch('http://localhost:5000/api/upload-and-analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folderPath: folderPath.trim(),
+          pageRequest: devRequest.trim()
+        })
       })
-      formData.append('dev_request', devRequest.trim())
 
-      // Simulate API call - replace with actual fetch
-      // const response = await fetch('/api/analyze-folder', {
-      //   method: 'POST',
-      //   body: formData
-      // })
-      // const data = await response.json()
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to analyze components')
+      }
 
-      // For now, simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const data = await response.json()
+      console.log('Analysis complete:', data)
 
       // Mark chat as complete when submission is successful
       markPageComplete('chat')
@@ -135,7 +150,7 @@ function ChatPage() {
       navigate('/elements')
     } catch (error) {
       console.error('Error submitting folder and request:', error)
-      // Handle error (show error message to user)
+      alert(`Error: ${error.message}. Please try again.`)
     } finally {
       setIsLoading(false)
     }
@@ -179,14 +194,24 @@ function ChatPage() {
               disabled={isLoading}
               style={{ display: 'none' }}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="folder-button"
+            <div className="chat-input-row">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="folder-button"
+                disabled={isLoading}
+              >
+                {folder && folder.length > 0 ? `${folder.length} file(s) selected` : 'Select Folder'}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={folderPath}
+              onChange={(e) => setFolderPath(e.target.value)}
+              placeholder="Enter absolute path to the uploaded folder (e.g., C:/path/to/your/src)"
+              className="chat-input folder-path-input"
               disabled={isLoading}
-            >
-              {folder && folder.length > 0 ? `${folder.length} file(s) selected` : 'Select Folder'}
-            </button>
+            />
             <textarea
               ref={textareaRef}
               value={devRequest}
@@ -203,12 +228,16 @@ function ChatPage() {
             <button
               type="submit"
               className="send-button"
-              disabled={!folder || folder.length === 0 || !devRequest.trim() || isLoading}
+              disabled={!folder || folder.length === 0 || !devRequest.trim() || !folderPath.trim() || isLoading}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
+              {isLoading ? (
+                <div className="loading-spinner"></div>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              )}
             </button>
           </div>
         </form>
