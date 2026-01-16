@@ -95,7 +95,7 @@ def create_client(region_name="us-east-1"):
     try:
         # Use default credential chain - no profile specified
         session = boto3.Session(
-            profile_name='codebendersdev', 
+            profile_name='cloudangles-mlops', 
             region_name=region_name)
         client = session.client("bedrock-runtime", region_name=region_name)
         return client
@@ -131,7 +131,7 @@ async def run_model(system_prompt: str, user_message: str):
 
     # Use default credential chain - no profile specified
     session = aioboto3.Session(
-        profile_name="codebendersdev",
+        profile_name="cloudangles-mlops",
         region_name="us-east-1"
     )
 
@@ -176,7 +176,7 @@ async def run_model_qwen(system_prompt: str, user_message: str):
     print("[DEBUG] Entered run_model()")
 
     session = aioboto3.Session(
-        profile_name="codebendersdev",
+        profile_name="cloudangles-mlops",
         region_name="us-east-1"
     )
 

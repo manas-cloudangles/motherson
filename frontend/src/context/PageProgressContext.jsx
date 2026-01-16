@@ -11,16 +11,41 @@ export const usePageProgress = () => {
 }
 
 export const PageProgressProvider = ({ children }) => {
+  // Check if app session is active (exists during navigation, cleared on reload)
+  const hasActiveSession = () => {
+    return sessionStorage.getItem('appSessionActive') === 'true'
+  }
+
   const [completedPages, setCompletedPages] = useState(() => {
-    // Load from sessionStorage on mount
-    const saved = sessionStorage.getItem('pageProgress')
-    return saved ? JSON.parse(saved) : { chat: false, elements: false, download: false }
+    // Only restore from sessionStorage if we have an active session (navigation within app)
+    // On page reload, the flag is cleared, so we start fresh
+    if (hasActiveSession()) {
+      const saved = sessionStorage.getItem('pageProgress')
+      return saved ? JSON.parse(saved) : { chat: false, elements: false, download: false }
+    }
+    // Page reload or first visit - start fresh
+    return { chat: false, elements: false, download: false }
   })
 
   const [appData, setAppData] = useState(() => {
-    // Load app data from sessionStorage on mount (excluding folder which can't be serialized)
-    const saved = sessionStorage.getItem('appData')
-    return saved ? JSON.parse(saved) : {
+    // Only restore from sessionStorage if we have an active session
+    if (hasActiveSession()) {
+      const saved = sessionStorage.getItem('appData')
+      return saved ? JSON.parse(saved) : {
+        folder: null,
+        devRequest: '',
+        components: [],
+        selectedComponents: [],
+        componentReasoning: {},
+        generatedFiles: {
+          html: '',
+          css: '',
+          ts: ''
+        }
+      }
+    }
+    // Page reload or first visit - start fresh
+    return {
       folder: null,
       devRequest: '',
       components: [],
@@ -33,6 +58,30 @@ export const PageProgressProvider = ({ children }) => {
       }
     }
   })
+
+  // Handle page reload detection and session management
+  useEffect(() => {
+    // If no active session flag exists, this is a reload or first visit
+    // Clear any stale data from sessionStorage
+    if (!hasActiveSession()) {
+      sessionStorage.removeItem('pageProgress')
+      sessionStorage.removeItem('appData')
+    }
+    
+    // Set app session flag to track active session (for navigation within app)
+    sessionStorage.setItem('appSessionActive', 'true')
+    
+    // Clear flag on page unload (reload/close) so next load starts fresh
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem('appSessionActive')
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
 
   // Save to sessionStorage whenever completedPages changes
   useEffect(() => {

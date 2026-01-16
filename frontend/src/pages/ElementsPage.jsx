@@ -17,82 +17,90 @@ function ElementsPage() {
   const hasInputFromPreviousStep = completedPages.chat && appData.devRequest && appData.devRequest.trim() !== ''
 
   useEffect(() => {
-    // Fetch components from backend when page loads
-    const fetchComponents = async () => {
+    // Use components from ChatPage and fetch component selection from backend
+    const initializeComponents = async () => {
       if (!completedPages.chat) return
 
       setIsLoading(true)
       try {
-        // TODO: Replace with actual backend API endpoint
-        // const response = await fetch('/api/get-components', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     dev_request: appData.devRequest
-        //   })
-        // })
-        // const data = await response.json()
+        // First, use components from appData (set by ChatPage)
+        const componentsFromChat = appData.components || []
         
-        // For now, use mock data - replace with actual API response
-        // Expected API response format:
-        // {
-        //   components: [
-        //     { id: 'button', name: 'Button', ... },
-        //     ...
-        //   ],
-        //   recommended: ['button', 'input', ...], // IDs of recommended components
-        //   reasoning: {
-        //     'button': 'Reason why button was selected...',
-        //     ...
-        //   }
-        // }
-        
-        const mockData = {
-          components: [
-            { id: 'button', name: 'Button' },
-            { id: 'input', name: 'Input Field' },
-            { id: 'card', name: 'Card' },
-            { id: 'navbar', name: 'Navigation Bar' },
-            { id: 'form', name: 'Form' },
-            { id: 'modal', name: 'Modal' },
-            { id: 'table', name: 'Table' },
-            { id: 'list', name: 'List' },
-          ],
-          recommended: ['button', 'input', 'card'],
-          reasoning: {
-            'button': 'Based on your requirement, buttons are essential for user interactions and call-to-action elements. The uploaded folder structure suggests a need for interactive elements.',
-            'input': 'Input fields are necessary for collecting user data. Your project structure indicates form-based interactions, making input components a core requirement.',
-            'card': 'Card components provide a clean way to display content in organized sections. The folder structure shows content-heavy pages that would benefit from card layouts.'
-          }
+        if (componentsFromChat.length === 0) {
+          console.warn('No components found in appData')
+          setIsLoading(false)
+          return
         }
 
-        setComponents(mockData.components)
-        setAiReasoning(mockData.reasoning || {})
-        
-        // Initialize edited reasoning from appData or use AI reasoning as default
-        if (!appData.componentReasoning && mockData.reasoning) {
-          setEditedReasoning(mockData.reasoning)
-          updateAppData({ componentReasoning: mockData.reasoning })
+        // Transform backend component format to frontend format
+        // Backend format: { name, id_name, description, ... }
+        // Frontend format: { id, name, ... }
+        const transformedComponents = componentsFromChat.map(comp => ({
+          id: comp.id_name || comp.name,
+          name: comp.name,
+          description: comp.description,
+          import_path: comp.import_path,
+          ...comp // Include all other properties
+        }))
+
+        setComponents(transformedComponents)
+        updateAppData({ components: transformedComponents })
+
+        // Now call backend API to get component selection and reasoning
+        const response = await fetch('http://localhost:5000/api/select-components', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pageRequest: appData.devRequest || ''
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: `Server error: ${response.status}` }))
+          throw new Error(errorData.detail || `Server error: ${response.status}`)
         }
-        
-        // Pre-select recommended components if not already selected
-        if (selectedComponents.length === 0 && mockData.recommended) {
-          const recommendedComponents = mockData.components.filter(comp => 
-            mockData.recommended.includes(comp.id)
-          )
-          setSelectedComponents(recommendedComponents.map(comp => comp.id))
-          updateAppData({ selectedComponents: recommendedComponents.map(comp => comp.id) })
+
+        const data = await response.json()
+
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Failed to select components')
+        }
+
+        // Set AI reasoning from backend response
+        const reasoning = data.reasoning || {}
+        setAiReasoning(reasoning)
+
+        // Always use AI reasoning from backend (it's based on the page request)
+        if (reasoning && Object.keys(reasoning).length > 0) {
+          setEditedReasoning(reasoning)
+          updateAppData({ componentReasoning: reasoning })
+        } else if (appData.componentReasoning) {
+          // Fallback to existing reasoning if backend didn't provide any
+          setEditedReasoning(appData.componentReasoning)
+        }
+
+        // Always auto-select components based on backend's AI selection
+        // This ensures components are selected based on the user's page request from page 1
+        const selectedIds = data.selected_component_ids || []
+        if (selectedIds.length > 0) {
+          setSelectedComponents(selectedIds)
+          updateAppData({ selectedComponents: selectedIds })
+          console.log(`✓ Auto-selected ${selectedIds.length} components based on page request`)
+        } else {
+          console.log('⚠ No components were auto-selected by the backend')
         }
       } catch (error) {
-        console.error('Error fetching components:', error)
+        console.error('Error initializing components:', error)
+        alert(`Error: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchComponents()
+    initializeComponents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completedPages.chat])
 
   const toggleComponent = (componentId) => {
@@ -133,15 +141,77 @@ function ElementsPage() {
     })
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     // Save final component reasoning before continuing
     updateAppData({ componentReasoning: editedReasoning })
     
     // Mark elements page as complete when user continues
     if (selectedComponents.length > 0) {
-      markPageComplete('elements')
-      // Navigate to download page
-      navigate('/download')
+      try {
+        // Update component metadata on backend with user's manual changes
+        // Use original components from appData to ensure we have all fields (html_code, scss_code, ts_code, etc.)
+        const originalComponents = appData.components || components
+        
+        // Build updated components list with required and reasoning fields
+        const updatedComponents = originalComponents.map(comp => {
+          const compId = comp.id || comp.id_name || comp.name
+          const isRequired = selectedComponents.includes(compId)
+          const compReasoning = editedReasoning[compId] || ''
+          
+          // Explicitly set required to false if not in selectedComponents
+          // This ensures user's manual deselection is respected
+          const requiredValue = isRequired ? true : false
+          
+          console.log(`Component ${compId}: required=${requiredValue}, in selectedComponents=${isRequired}`)
+          
+          // Preserve all original fields and update required/reasoning
+          return {
+            ...comp,
+            required: requiredValue, // Explicitly set to boolean
+            reasoning: compReasoning
+          }
+        })
+        
+        // Log summary of required components
+        const requiredCount = updatedComponents.filter(c => c.required === true).length
+        const notRequiredCount = updatedComponents.filter(c => c.required === false).length
+        console.log(`Updating metadata: ${requiredCount} required, ${notRequiredCount} not required`)
+        console.log('Required components:', updatedComponents.filter(c => c.required).map(c => c.id || c.id_name || c.name))
+        console.log('Not required components:', updatedComponents.filter(c => !c.required).map(c => c.id || c.id_name || c.name))
+        
+        // Call API to update metadata
+        const response = await fetch('http://localhost:5000/api/update-component-metadata', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            components: updatedComponents
+          })
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: `Server error: ${response.status}` }))
+          throw new Error(errorData.detail || `Server error: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Failed to update component metadata')
+        }
+        
+        console.log('✓ Component metadata updated successfully')
+        
+        // Clear old generated files so DownloadPage will regenerate with updated metadata
+        updateAppData({ generatedFiles: null })
+        
+        // Mark elements page as complete and navigate
+        markPageComplete('elements')
+        navigate('/download')
+      } catch (error) {
+        console.error('Error updating component metadata:', error)
+        alert(`Error updating component metadata: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
+      }
     }
   }
 

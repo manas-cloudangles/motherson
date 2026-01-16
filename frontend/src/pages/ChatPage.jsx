@@ -111,22 +111,39 @@ function ChatPage() {
     updateAppData({ devRequest: devRequest.trim() })
 
     try {
-      // TODO: Replace with actual backend API endpoint
+      // Prepare FormData with files and page request
       const formData = new FormData()
       folder.forEach((file) => {
-        formData.append('files', file)
+        // Create a new File object with webkitRelativePath in the name if available
+        // This preserves the directory structure
+        const relativePath = file.webkitRelativePath || file.name
+        const fileWithPath = new File([file], relativePath, { type: file.type })
+        formData.append('files', fileWithPath)
       })
-      formData.append('dev_request', devRequest.trim())
+      formData.append('pageRequest', devRequest.trim())
 
-      // Simulate API call - replace with actual fetch
-      // const response = await fetch('/api/analyze-folder', {
-      //   method: 'POST',
-      //   body: formData
-      // })
-      // const data = await response.json()
+      // Call backend API
+      const response = await fetch('http://localhost:5000/api/upload-and-analyze', {
+        method: 'POST',
+        body: formData
+      })
 
-      // For now, simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `Server error: ${response.status}` }))
+        throw new Error(errorData.detail || `Server error: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status !== 'success') {
+        throw new Error(data.message || 'Failed to analyze components')
+      }
+
+      // Store components in context for ElementsPage
+      updateAppData({ 
+        components: data.components || [],
+        devRequest: devRequest.trim()
+      })
 
       // Mark chat as complete when submission is successful
       markPageComplete('chat')
@@ -135,7 +152,7 @@ function ChatPage() {
       navigate('/elements')
     } catch (error) {
       console.error('Error submitting folder and request:', error)
-      // Handle error (show error message to user)
+      alert(`Error: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
     } finally {
       setIsLoading(false)
     }
@@ -144,9 +161,15 @@ function ChatPage() {
   return (
     <div className="chat-page">
       <div className="chat-container">
+        {isLoading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Analyzing components... This may take a moment.</p>
+          </div>
+        )}
         <div 
           className={`folder-structure-container ${!folderStructure ? 'folder-upload-area' : ''}`}
-          onClick={() => !folderStructure && fileInputRef.current?.click()}
+          onClick={() => !folderStructure && !isLoading && fileInputRef.current?.click()}
         >
           {folderStructure ? (
             <>

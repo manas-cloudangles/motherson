@@ -113,7 +113,7 @@ def write_file_safe(file_path: Path, content: str, encoding: str = 'utf-8') -> b
 
 def read_component_files(component_dir: Path, extensions: List[str] = None) -> Dict[str, str]:
     """
-    Read all relevant files in a component directory.
+    Read all relevant files in a component directory (recursively).
     
     Args:
         component_dir: Path to the component directory
@@ -121,7 +121,7 @@ def read_component_files(component_dir: Path, extensions: List[str] = None) -> D
                    If None, defaults to ['.ts', '.html', '.scss']
         
     Returns:
-        dict: Dictionary mapping file names to their contents
+        dict: Dictionary mapping file names (with relative paths) to their contents
     """
     if extensions is None:
         extensions = ['.ts', '.html', '.scss']
@@ -129,18 +129,22 @@ def read_component_files(component_dir: Path, extensions: List[str] = None) -> D
     files_content = {}
     
     if not component_dir.exists() or not component_dir.is_dir():
+        print(f"  ⚠ Component directory does not exist or is not a directory: {component_dir}")
         return files_content
     
-    for file_path in component_dir.iterdir():
+    # Recursively search for files
+    for file_path in component_dir.rglob('*'):
         if file_path.is_file():
             # Skip spec files
             if '.spec.' in file_path.name:
                 continue
             
             if file_path.suffix in extensions:
+                # Use relative path from component_dir as key to preserve structure
+                relative_path = file_path.relative_to(component_dir)
                 content = read_file_safe(file_path)
                 if content:
-                    files_content[file_path.name] = content
+                    files_content[str(relative_path)] = content
     
     return files_content
 
