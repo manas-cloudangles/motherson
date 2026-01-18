@@ -7,7 +7,6 @@ function ChatPage() {
   const navigate = useNavigate()
   const { markPageComplete, updateAppData, appData } = usePageProgress()
   const [folder, setFolder] = useState(null)
-  const [folderPath, setFolderPath] = useState(appData.folderPath || '')
   const [devRequest, setDevRequest] = useState(appData.devRequest || '')
   const [isLoading, setIsLoading] = useState(false)
   const fileInputRef = useRef(null)
@@ -31,7 +30,7 @@ function ChatPage() {
     if (!folder || folder.length === 0) return null
 
     const tree = {}
-
+    
     folder.forEach((file) => {
       const path = file.webkitRelativePath || file.name
       const parts = path.split('/')
@@ -76,7 +75,7 @@ function ChatPage() {
           {prefix}{currentPrefix} {dirName}/
         </div>
       )
-
+      
       items.push(...renderFolderTree(node[dirName], level + 1, newPath, nextPrefix, isLastDir))
     })
 
@@ -101,26 +100,15 @@ function ChatPage() {
   const handleFolderChange = (e) => {
     const files = Array.from(e.target.files)
     setFolder(files)
-
-    // Extract the base folder name from webkitRelativePath for display
-    // But we still need user to provide absolute path
-    if (files.length > 0) {
-      const firstFile = files[0]
-      const relativePath = firstFile.webkitRelativePath
-      const folderName = relativePath.split('/')[0]
-      // Don't auto-set folderPath - user needs to enter absolute path
-      updateAppData({ folder: files })
-    } else {
-      updateAppData({ folder: files })
-    }
+    updateAppData({ folder: files })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!folder || folder.length === 0 || !devRequest.trim() || !folderPath.trim() || isLoading) return
+    if (!folder || folder.length === 0 || !devRequest.trim() || isLoading) return
 
     setIsLoading(true)
-    updateAppData({ devRequest: devRequest.trim(), folderPath: folderPath.trim() })
+    updateAppData({ devRequest: devRequest.trim() })
 
     try {
       // Prepare FormData with files and page request
@@ -152,14 +140,14 @@ function ChatPage() {
       }
 
       // Store components in context for ElementsPage
-      updateAppData({
+      updateAppData({ 
         components: data.components || [],
         devRequest: devRequest.trim()
       })
 
       // Mark chat as complete when submission is successful
       markPageComplete('chat')
-
+      
       // Navigate to elements page after processing is complete
       navigate('/elements')
     } catch (error) {
@@ -179,7 +167,7 @@ function ChatPage() {
             <p>Analyzing components... This may take a moment.</p>
           </div>
         )}
-        <div
+        <div 
           className={`folder-structure-container ${!folderStructure ? 'folder-upload-area' : ''}`}
           onClick={() => !folderStructure && !isLoading && fileInputRef.current?.click()}
         >
@@ -214,24 +202,14 @@ function ChatPage() {
               disabled={isLoading}
               style={{ display: 'none' }}
             />
-            <div className="chat-input-row">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="folder-button"
-                disabled={isLoading}
-              >
-                {folder && folder.length > 0 ? `${folder.length} file(s) selected` : 'Select Folder'}
-              </button>
-            </div>
-            <input
-              type="text"
-              value={folderPath}
-              onChange={(e) => setFolderPath(e.target.value)}
-              placeholder="Enter absolute path to the uploaded folder (e.g., C:/path/to/your/src)"
-              className="chat-input folder-path-input"
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="folder-button"
               disabled={isLoading}
-            />
+            >
+              {folder && folder.length > 0 ? `${folder.length} file(s) selected` : 'Select Folder'}
+            </button>
             <textarea
               ref={textareaRef}
               value={devRequest}
@@ -248,16 +226,12 @@ function ChatPage() {
             <button
               type="submit"
               className="send-button"
-              disabled={!folder || folder.length === 0 || !devRequest.trim() || !folderPath.trim() || isLoading}
+              disabled={!folder || folder.length === 0 || !devRequest.trim() || isLoading}
             >
-              {isLoading ? (
-                <div className="loading-spinner"></div>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              )}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
             </button>
           </div>
         </form>

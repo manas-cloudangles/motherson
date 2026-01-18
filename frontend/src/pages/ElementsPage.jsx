@@ -25,7 +25,7 @@ function ElementsPage() {
       try {
         // First, use components from appData (set by ChatPage)
         const componentsFromChat = appData.components || []
-
+        
         if (componentsFromChat.length === 0) {
           console.warn('No components found in appData')
           setIsLoading(false)
@@ -104,31 +104,36 @@ function ElementsPage() {
   }, [completedPages.chat])
 
   const toggleComponent = (componentId) => {
-    const isCurrentlySelected = selectedComponents.includes(componentId)
-    const newRequired = !isCurrentlySelected
-
-    // Update UI state only - no API call
     setSelectedComponents(prev => {
-      const newSelection = newRequired
-        ? [...prev, componentId]
-        : prev.filter(id => id !== componentId)
+      const newSelection = prev.includes(componentId)
+        ? prev.filter(id => id !== componentId)
+        : [...prev, componentId]
       updateAppData({ selectedComponents: newSelection })
+      
+      // If component is removed, also remove its reasoning
+      if (prev.includes(componentId)) {
+        setEditedReasoning(prevReasoning => {
+          const newReasoning = { ...prevReasoning }
+          delete newReasoning[componentId]
+          updateAppData({ componentReasoning: newReasoning })
+          return newReasoning
+        })
+      } else {
+        // If component is added and has AI reasoning, initialize it
+        if (aiReasoning[componentId] && !editedReasoning[componentId]) {
+          setEditedReasoning(prevReasoning => {
+            const newReasoning = { ...prevReasoning, [componentId]: aiReasoning[componentId] }
+            updateAppData({ componentReasoning: newReasoning })
+            return newReasoning
+          })
+        }
+      }
+      
       return newSelection
     })
-
-    // If deselecting, remove reasoning
-    if (!newRequired) {
-      setEditedReasoning(prevReasoning => {
-        const newReasoning = { ...prevReasoning }
-        delete newReasoning[componentId]
-        updateAppData({ componentReasoning: newReasoning })
-        return newReasoning
-      })
-    }
   }
 
   const handleReasoningChange = (componentId, newReasoning) => {
-    // Update local state only - no API call
     setEditedReasoning(prev => {
       const updated = { ...prev, [componentId]: newReasoning }
       updateAppData({ componentReasoning: updated })
@@ -137,87 +142,78 @@ function ElementsPage() {
   }
 
   const handleContinue = async () => {
-    if (selectedComponents.length === 0) {
-      alert('Please select at least one component before continuing.')
-      return
-    }
-
-    // Save final component reasoning and selected components before continuing
-    updateAppData({
-      componentReasoning: editedReasoning,
-      selectedComponents: selectedComponents
-    })
-
-    setIsLoading(true)
-    try {
-      // Update component metadata on backend with user's manual changes
-      // Use original components from appData to ensure we have all fields (html_code, scss_code, ts_code, etc.)
-      const originalComponents = appData.components || components
-
-      // Build updated components list with required and reasoning fields
-      const updatedComponents = originalComponents.map(comp => {
-        const compId = comp.id || comp.id_name || comp.name
-        const isRequired = selectedComponents.includes(compId)
-        const compReasoning = editedReasoning[compId] || ''
-
-        // Explicitly set required to false if not in selectedComponents
-        // This ensures user's manual deselection is respected
-        const requiredValue = isRequired ? true : false
-
-        console.log(`Component ${compId}: required=${requiredValue}, in selectedComponents=${isRequired}`)
-
-        // Preserve all original fields and update required/reasoning
-        return {
-          ...comp,
-          required: requiredValue, // Explicitly set to boolean
-          reasoning: compReasoning
-        }
-      })
-
-      // Log summary of required components
-      const requiredCount = updatedComponents.filter(c => c.required === true).length
-      const notRequiredCount = updatedComponents.filter(c => c.required === false).length
-      console.log(`Updating metadata: ${requiredCount} required, ${notRequiredCount} not required`)
-      console.log('Required components:', updatedComponents.filter(c => c.required).map(c => c.id || c.id_name || c.name))
-      console.log('Not required components:', updatedComponents.filter(c => !c.required).map(c => c.id || c.id_name || c.name))
-
-      // Call API to update metadata
-      const updateMetadataResponse = await fetch('http://localhost:5000/api/update-component-metadata', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          components: updatedComponents
+    // Save final component reasoning before continuing
+    updateAppData({ componentReasoning: editedReasoning })
+    
+    // Mark elements page as complete when user continues
+    if (selectedComponents.length > 0) {
+      try {
+        // Update component metadata on backend with user's manual changes
+        // Use original components from appData to ensure we have all fields (html_code, scss_code, ts_code, etc.)
+        const originalComponents = appData.components || components
+        
+        // Build updated components list with required and reasoning fields
+        const updatedComponents = originalComponents.map(comp => {
+          const compId = comp.id || comp.id_name || comp.name
+          const isRequired = selectedComponents.includes(compId)
+          const compReasoning = editedReasoning[compId] || ''
+          
+          // Explicitly set required to false if not in selectedComponents
+          // This ensures user's manual deselection is respected
+          const requiredValue = isRequired ? true : false
+          
+          console.log(`Component ${compId}: required=${requiredValue}, in selectedComponents=${isRequired}`)
+          
+          // Preserve all original fields and update required/reasoning
+          return {
+            ...comp,
+            required: requiredValue, // Explicitly set to boolean
+            reasoning: compReasoning
+          }
         })
-      })
-
-      if (!updateMetadataResponse.ok) {
-        const errorData = await updateMetadataResponse.json().catch(() => ({ detail: `Server error: ${updateMetadataResponse.status}` }))
-        throw new Error(errorData.detail || `Server error: ${updateMetadataResponse.status}`)
+        
+        // Log summary of required components
+        const requiredCount = updatedComponents.filter(c => c.required === true).length
+        const notRequiredCount = updatedComponents.filter(c => c.required === false).length
+        console.log(`Updating metadata: ${requiredCount} required, ${notRequiredCount} not required`)
+        console.log('Required components:', updatedComponents.filter(c => c.required).map(c => c.id || c.id_name || c.name))
+        console.log('Not required components:', updatedComponents.filter(c => !c.required).map(c => c.id || c.id_name || c.name))
+        
+        // Call API to update metadata
+        const response = await fetch('http://localhost:5000/api/update-component-metadata', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            components: updatedComponents
+          })
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: `Server error: ${response.status}` }))
+          throw new Error(errorData.detail || `Server error: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Failed to update component metadata')
+        }
+        
+        console.log('✓ Component metadata updated successfully')
+        
+        // Clear old generated files so DownloadPage will regenerate with updated metadata
+        updateAppData({ generatedFiles: null })
+        
+        // Mark elements page as complete and navigate
+        markPageComplete('elements')
+        navigate('/download')
+      } catch (error) {
+        console.error('Error updating component metadata:', error)
+        alert(`Error updating component metadata: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
       }
-
-      const updateMetadataData = await updateMetadataResponse.json()
-      if (updateMetadataData.status !== 'success') {
-        throw new Error(updateMetadataData.message || 'Failed to update component metadata')
-      }
-
-      console.log('✓ Component metadata updated successfully')
-
-      // Clear old generated files so DownloadPage will regenerate with updated metadata
-      updateAppData({ generatedFiles: null })
-
-      // Mark elements page as complete and navigate
-      markPageComplete('elements')
-      navigate('/download')
-    } catch (error) {
-      console.error('Error updating component metadata:', error)
-      alert(`Error updating component metadata: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
-    } finally {
-      setIsLoading(false)
     }
   }
-
 
   if (!hasInputFromPreviousStep) {
     return (
@@ -246,8 +242,8 @@ function ElementsPage() {
       const component = components.find(c => c.id === id)
       const currentReasoning = editedReasoning[id] || aiReasoning[id] || ''
       const isAiSelected = !!aiReasoning[id]
-      return component ? {
-        ...component,
+      return component ? { 
+        ...component, 
         reasoning: currentReasoning,
         isAiSelected,
         hasReasoning: !!currentReasoning
@@ -278,8 +274,8 @@ function ElementsPage() {
               </div>
             ))}
           </div>
-          <button
-            className="generate-button"
+          <button 
+            className="generate-button" 
             onClick={handleContinue}
             disabled={selectedComponents.length === 0}
           >
@@ -310,8 +306,8 @@ function ElementsPage() {
                       value={component.reasoning || ''}
                       onChange={(e) => handleReasoningChange(component.id, e.target.value)}
                       placeholder={
-                        component.isAiSelected
-                          ? "Edit the AI's reasoning or add your own requirements..."
+                        component.isAiSelected 
+                          ? "Edit the AI's reasoning or add your own requirements..." 
                           : "Enter requirements and reasoning for this component..."
                       }
                       rows={4}
