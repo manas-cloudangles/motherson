@@ -31,6 +31,7 @@ from config import (
 )
 from utils import (
     read_component_files,
+    read_file_safe,
     extract_json_from_response,
     generate_import_path
 )
@@ -40,25 +41,29 @@ from get_secrets import run_model
 # System prompt for LLM metadata extraction
 METADATA_EXTRACTION_PROMPT = """You are an expert Angular developer analyzing component code.
 
-Your task is to analyze the provided Angular component files and extract metadata about the component.
+Your task is to analyze the provided Angular component files and extract metadata about THIS SPECIFIC COMPONENT ONLY.
+
+CRITICAL: You are analyzing an INDIVIDUAL COMPONENT, not a module. Extract metadata for the component class itself (e.g., AppButtonComponent, AppTableComponent), NOT for any module (e.g., AppCommonModule, CommonModule).
 
 You MUST return ONLY a valid JSON object with this exact structure:
 {
-    "name": "component name",
+    "name": "component class name",
     "description": "detailed description of what this component does and where it should be used",
     "import_path": "the exact import path that should be used to import this component in other Angular modules or components",
     "id_name": "the name of the unique identifier input property for this component that will be used in other files, or null if none exists"
 }
 
 Rules:
-1. The "name" should be the component class name (e.g., "AppButtonComponent")
+1. The "name" MUST be the component class name found in the TypeScript file (e.g., "AppButtonComponent", "AppTableComponent", "AppHeaderComponent"). It should match the class that has @Component decorator. DO NOT use module names.
 2. The "description" should explain:
-   - What the component does
-   - What inputs/outputs it has
-   - When and where to use it
-   - Any special features or behaviors
-3. The "import_path" should be the relative path from the app root (e.g., "app/common/components/app-button/app-button.component")
-4. The "id_name" is the name of the unique identifier input property for this component that will be used in other files, or null if none exists. It is what we will be basically writing in the new html or ts files to reference this component.
+   - What THIS SPECIFIC COMPONENT does (not what other components do)
+   - What inputs/outputs THIS COMPONENT has
+   - When and where to use THIS COMPONENT
+   - Any special features or behaviors of THIS COMPONENT
+3. The "import_path" should be the relative path from the app root to THIS COMPONENT's file (e.g., "app/common/components/app-button/app-button.component")
+4. The "id_name" is the component selector (e.g., "app-button" from selector: 'app-button') or the name of a unique identifier input property, or null if none exists. This is what will be used in HTML templates to reference this component.
+
+IMPORTANT: If you see multiple components or a module declaration in the files, extract metadata ONLY for the component that matches the file names provided. Ignore any module declarations or other components.
 
 Return ONLY the JSON object, no additional text or explanation."""
 
@@ -96,55 +101,110 @@ class ComponentMetadataPipeline:
         self.output_readme_file = output_readme_file or COMPONENT_README_FILE
         self.metadata_list: List[Dict[str, Any]] = []
     
-    def discover_components(self) -> List[Path]:
+    def discover_components(self) -> List[Dict[str, Any]]:
         """
-        Discover all component directories.
+        Discover all individual Angular components by finding .component.ts files.
+        Groups related files (html, scss, ts) by component name.
         
         Returns:
-            List[Path]: List of component directory paths
+            List[Dict]: List of component info dicts with 'base_path' and 'files' keys
         """
         if not self.components_dir.exists():
             print(f"❌ Components directory not found: {self.components_dir}")
             return []
         
-        component_dirs = [
-            d for d in self.components_dir.iterdir()
-            if d.is_dir() and not d.name.startswith('.')
-        ]
+        # Find all .component.ts files recursively
+        component_ts_files = list(self.components_dir.rglob('*.component.ts'))
         
-        print(f"✓ Discovered {len(component_dirs)} components")
-        return component_dirs
+        # Filter out spec files
+        component_ts_files = [f for f in component_ts_files if '.spec.' not in f.name]
+        
+        components = []
+        
+        for ts_file in component_ts_files:
+            # Get component base name (e.g., "app-button" from "app-button.component.ts")
+            base_name = ts_file.stem.replace('.component', '')
+            base_path = ts_file.parent
+            
+            # Find related files (html, scss)
+            html_file = base_path / f"{base_name}.component.html"
+            scss_file = base_path / f"{base_name}.component.scss"
+            
+            component_info = {
+                'base_path': base_path,
+                'base_name': base_name,
+                'ts_file': ts_file,
+                'html_file': html_file if html_file.exists() else None,
+                'scss_file': scss_file if scss_file.exists() else None
+            }
+            
+            components.append(component_info)
+        
+        print(f"✓ Discovered {len(components)} individual components")
+        return components
     
-    async def analyze_component(self, component_dir: Path) -> Optional[Dict[str, Any]]:
+    async def analyze_component(self, component_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Analyze a single component and extract metadata.
         
         Args:
-            component_dir: Path to the component directory
+            component_info: Dict with 'base_path', 'base_name', 'ts_file', 'html_file', 'scss_file'
             
         Returns:
             Optional[Dict]: Component metadata or None if analysis fails
         """
-        component_name = component_dir.name
-        print(f"\nAnalyzing: {component_name}")
+        base_name = component_info['base_name']
+        ts_file = component_info['ts_file']
+        html_file = component_info.get('html_file')
+        scss_file = component_info.get('scss_file')
         
-        # Read all files in the component directory
-        files_content = read_component_files(component_dir, COMPONENT_FILE_EXTENSIONS)
+        print(f"\nAnalyzing: {base_name}")
+        print(f"  Component path: {ts_file.relative_to(self.components_dir)}")
         
-        if not files_content:
-            print(f"⚠ No files found for {component_name}")
+        # Read component files
+        files_content = {}
+        
+        # Read TypeScript file (required)
+        if ts_file.exists():
+            ts_content = read_file_safe(ts_file)
+            if ts_content:
+                files_content['ts'] = ts_content
+            else:
+                print(f"  ⚠ Could not read TypeScript file: {ts_file}")
+                return None
+        else:
+            print(f"  ⚠ TypeScript file not found: {ts_file}")
             return None
         
-        print(f"  ✓ Read {len(files_content)} files")
+        # Read HTML file (optional)
+        if html_file and html_file.exists():
+            html_content = read_file_safe(html_file)
+            if html_content:
+                files_content['html'] = html_content
+        
+        # Read SCSS file (optional)
+        if scss_file and scss_file.exists():
+            scss_content = read_file_safe(scss_file)
+            if scss_content:
+                files_content['scss'] = scss_content
+        
+        print(f"  ✓ Read {len(files_content)} file(s)")
         
         # Construct the user message with all file contents
-        user_message = f"Analyze this Angular component: {component_name}\n\n"
-        user_message += "Here are all the files in this component:\n\n"
+        user_message = f"Analyze this Angular component: {base_name}\n\n"
+        user_message += "Here are the component files:\n\n"
         
-        for filename, content in files_content.items():
-            user_message += f"--- {filename} ---\n{content}\n\n"
+        if 'ts' in files_content:
+            user_message += f"--- TypeScript ({ts_file.name}) ---\n{files_content['ts']}\n\n"
+        if 'html' in files_content:
+            user_message += f"--- HTML ({html_file.name}) ---\n{files_content['html']}\n\n"
+        if 'scss' in files_content:
+            user_message += f"--- SCSS ({scss_file.name}) ---\n{files_content['scss']}\n\n"
         
-        user_message += "\nPlease provide the component metadata in the specified JSON format."
+        user_message += "\nIMPORTANT: Extract metadata for THIS SPECIFIC COMPONENT only, not for any module or other components. "
+        user_message += "The component name should be the actual component class name (e.g., AppButtonComponent, AppTableComponent), "
+        user_message += "NOT a module name (e.g., AppCommonModule)."
+        user_message += "\n\nPlease provide the component metadata in the specified JSON format."
         
         try:
             # Call the LLM
@@ -159,10 +219,31 @@ class ComponentMetadataPipeline:
             
             print(f"  ✓ Extracted metadata for {metadata.get('name')}")
             
+            # Extract selector from TypeScript code if id_name is null
+            if not metadata.get('id_name') and 'ts' in files_content:
+                import re
+                ts_code = files_content['ts']
+                # Look for selector in @Component decorator
+                selector_match = re.search(r"selector\s*:\s*['\"]([^'\"]+)['\"]", ts_code)
+                if selector_match:
+                    metadata['id_name'] = selector_match.group(1)
+                    print(f"  ✓ Extracted selector: {metadata['id_name']}")
+                else:
+                    # Fallback to component name in kebab-case
+                    comp_name = metadata.get('name', base_name)
+                    # Convert PascalCase to kebab-case
+                    kebab_name = re.sub(r'(?<!^)(?=[A-Z])', '-', comp_name).lower()
+                    metadata['id_name'] = kebab_name
+                    print(f"  ✓ Using fallback selector: {metadata['id_name']}")
+            
             # Add the actual file contents to the metadata
-            metadata['html_code'] = files_content.get(f"{component_name}.component.html", "")
-            metadata['scss_code'] = files_content.get(f"{component_name}.component.scss", "")
-            metadata['ts_code'] = files_content.get(f"{component_name}.component.ts", "")
+            metadata['html_code'] = files_content.get('html', '')
+            metadata['scss_code'] = files_content.get('scss', '')
+            metadata['ts_code'] = files_content.get('ts', '')
+            
+            # Add required and reasoning fields for component management
+            metadata['required'] = False
+            metadata['reasoning'] = ''
             
             return metadata
             
@@ -171,6 +252,8 @@ class ComponentMetadataPipeline:
             return None
         except Exception as e:
             print(f"  ❌ Error analyzing component: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     async def generate_all_metadata(self) -> List[Dict[str, Any]]:
@@ -180,28 +263,28 @@ class ComponentMetadataPipeline:
         Returns:
             List[Dict]: List of metadata dictionaries
         """
-        component_dirs = self.discover_components()
+        components = self.discover_components()
         
-        if not component_dirs:
+        if not components:
             print("❌ No components found")
             return []
         
         print(f"\n{'='*60}")
-        print(f"Processing {len(component_dirs)} components...")
+        print(f"Processing {len(components)} components...")
         print(f"{'='*60}\n")
         
         self.metadata_list = []
         
-        for idx, component_dir in enumerate(component_dirs, 1):
-            print(f"[{idx}/{len(component_dirs)}]", end=" ")
+        for idx, component_info in enumerate(components, 1):
+            print(f"[{idx}/{len(components)}]", end=" ")
             
-            metadata = await self.analyze_component(component_dir)
+            metadata = await self.analyze_component(component_info)
             
             if metadata:
                 self.metadata_list.append(metadata)
         
         print(f"\n{'='*60}")
-        print(f"✓ Successfully processed {len(self.metadata_list)}/{len(component_dirs)} components")
+        print(f"✓ Successfully processed {len(self.metadata_list)}/{len(components)} components")
         print(f"{'='*60}\n")
         
         return self.metadata_list

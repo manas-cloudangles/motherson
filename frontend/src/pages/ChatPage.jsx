@@ -31,7 +31,7 @@ function ChatPage() {
     if (!folder || folder.length === 0) return null
 
     const tree = {}
-    
+
     folder.forEach((file) => {
       const path = file.webkitRelativePath || file.name
       const parts = path.split('/')
@@ -76,7 +76,7 @@ function ChatPage() {
           {prefix}{currentPrefix} {dirName}/
         </div>
       )
-      
+
       items.push(...renderFolderTree(node[dirName], level + 1, newPath, nextPrefix, isLastDir))
     })
 
@@ -101,7 +101,7 @@ function ChatPage() {
   const handleFolderChange = (e) => {
     const files = Array.from(e.target.files)
     setFolder(files)
-    
+
     // Extract the base folder name from webkitRelativePath for display
     // But we still need user to provide absolute path
     if (files.length > 0) {
@@ -123,34 +123,48 @@ function ChatPage() {
     updateAppData({ devRequest: devRequest.trim(), folderPath: folderPath.trim() })
 
     try {
-      // Call backend API to analyze components
+      // Prepare FormData with files and page request
+      const formData = new FormData()
+      folder.forEach((file) => {
+        // Create a new File object with webkitRelativePath in the name if available
+        // This preserves the directory structure
+        const relativePath = file.webkitRelativePath || file.name
+        const fileWithPath = new File([file], relativePath, { type: file.type })
+        formData.append('files', fileWithPath)
+      })
+      formData.append('pageRequest', devRequest.trim())
+
+      // Call backend API
       const response = await fetch('http://localhost:5000/api/upload-and-analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          folderPath: folderPath.trim(),
-          pageRequest: devRequest.trim()
-        })
+        body: formData
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to analyze components')
+        const errorData = await response.json().catch(() => ({ detail: `Server error: ${response.status}` }))
+        throw new Error(errorData.detail || `Server error: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('Analysis complete:', data)
+
+      if (data.status !== 'success') {
+        throw new Error(data.message || 'Failed to analyze components')
+      }
+
+      // Store components in context for ElementsPage
+      updateAppData({
+        components: data.components || [],
+        devRequest: devRequest.trim()
+      })
 
       // Mark chat as complete when submission is successful
       markPageComplete('chat')
-      
+
       // Navigate to elements page after processing is complete
       navigate('/elements')
     } catch (error) {
       console.error('Error submitting folder and request:', error)
-      alert(`Error: ${error.message}. Please try again.`)
+      alert(`Error: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
     } finally {
       setIsLoading(false)
     }
@@ -159,9 +173,15 @@ function ChatPage() {
   return (
     <div className="chat-page">
       <div className="chat-container">
-        <div 
+        {isLoading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Analyzing components... This may take a moment.</p>
+          </div>
+        )}
+        <div
           className={`folder-structure-container ${!folderStructure ? 'folder-upload-area' : ''}`}
-          onClick={() => !folderStructure && fileInputRef.current?.click()}
+          onClick={() => !folderStructure && !isLoading && fileInputRef.current?.click()}
         >
           {folderStructure ? (
             <>
