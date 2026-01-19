@@ -107,25 +107,27 @@ function RightSidebar() {
         )}
       </nav>
 
-      <button className="chat-toggle-btn" onClick={toggleSidebar}>
-        {isExpanded ? (
-          <>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-            Hide Chat
-          </>
-        ) : (
-          <>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            Ask AI
-          </>
-        )}
-      </button>
+      {location.pathname === '/download' && (
+        <button className="chat-toggle-btn" onClick={toggleSidebar}>
+          {isExpanded ? (
+            <>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+              Hide Chat
+            </>
+          ) : (
+            <>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Ask AI
+            </>
+          )}
+        </button>
+      )}
 
-      {isExpanded && (
+      {isExpanded && location.pathname === '/download' && (
         <div className="sidebar-chat-section">
           <div className="sidebar-chat-header">
             <h3>AI Assistant</h3>

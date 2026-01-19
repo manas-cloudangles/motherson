@@ -1,7 +1,8 @@
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
@@ -185,7 +186,7 @@
 
 .app-footer {
   background-color: var(--primary-color);
-  padding: 2rem;
+  padding: 1rem;
   margin-top: auto;
   box-shadow: 0 -2px 8px rgba(var(--primary-color-rgb), 0.2);
 }
