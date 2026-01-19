@@ -262,7 +262,7 @@
   }
 
   .topbar {
-    min-height: auto;
+    min-height: 0;
     padding: 1rem;
   }
 
