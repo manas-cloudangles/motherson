@@ -1,1 +1,1 @@
-Make me a page that shows date range. It needs a date range and button, whenever I change the date range and press the button, the date range shown on the screen needs to get updated
+make a page with data table having 2 columns. The 2 columns need to be "EMP ID" and "Salary". There needs to be 2 boxes where I can fill EMP ID and Salary and a button. When I input EMP ID in the EMP ID box and salary in the salary box and then press the submit button. The table needs to get updated.

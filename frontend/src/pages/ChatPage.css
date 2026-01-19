@@ -1,8 +1,9 @@
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 200px);
-  max-height: 800px;
+  height: 100%;
+  padding: 2rem;
+  /* Add back padding here since we took it off main */
 }
 
 .chat-container {
@@ -148,6 +149,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -207,10 +209,14 @@
 }
 
 @keyframes typing {
-  0%, 60%, 100% {
+
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
     opacity: 0.7;
   }
+
   30% {
     transform: translateY(-10px);
     opacity: 1;
@@ -316,11 +322,11 @@
   .chat-page {
     height: calc(100vh - 180px);
   }
-  
+
   .message {
     max-width: 90%;
   }
-  
+
   .chat-messages {
     padding: 1.5rem;
   }

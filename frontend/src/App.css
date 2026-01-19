@@ -179,6 +179,12 @@
   min-width: 0;
 }
 
+.main-content.no-scroll {
+  overflow: hidden;
+  padding: 0;
+  /* Remove padding to let chat page control its own spacing if needed */
+}
+
 .main-content-full {
   /* Full width when FileExplorer is not shown */
   width: 100%;

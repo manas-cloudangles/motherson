@@ -115,6 +115,11 @@ class PageGenerationPipeline:
             components_doc += f"Description: {comp['description']}\n"
             components_doc += f"HTML Tag/ID to use: {comp['id_name']}\n"
             components_doc += f"Import Path: {comp['import_path']}\n"
+            
+            # Add reasoning if provided (this comes from user's selection rationale)
+            if comp.get('reasoning') and comp['reasoning'].strip():
+                components_doc += f"Reasoning/Usage Note: {comp['reasoning']}\n"
+                
             components_doc += f"---\n\n"
         
         system_prompt = f"""You are an expert Angular developer creating new master pages.
@@ -138,6 +143,13 @@ TYPESCRIPT REQUIREMENTS:
 - Use @Component decorator with selector, templateUrl, styleUrls
 - Export the component class
 - Include constructor and ngOnInit lifecycle hook
+
+MOCK DATA REQUIREMENTS:
+- Your component MUST have realistic mock data to show in the preview.
+- Define properties in the class (e.g., tableData, userList, chartOptions) with proper interfaces or types.
+- Initialize this data in `ngOnInit` with at least 3-5 rows/items of realistic sample data.
+- Bind this data in your HTML (e.g., using *ngFor) so the page looks populated and functional immediately.
+- DO NOT leave the page empty or waiting for an API call.
 
 CRITICAL - OUTPUT FORMAT:
 You MUST respond with PURE JSON ONLY. Your entire response must be a single valid JSON object.

@@ -6,7 +6,7 @@ Total Components: 13
 
 ## 1. AppAccordionComponent
 
-**Description**: A collapsible accordion component that displays a title header with expand/collapse functionality. The component accepts a title string and initial expanded state as inputs, and emits toggle events when expanded or collapsed. Content is projected using ng-content, making it flexible for displaying any type of content within the accordion body. Features a clickable header with chevron icons that indicate the current state (up when expanded, down when collapsed). Styled with Bootstrap classes and includes subtle shadow effects.
+**Description**: A collapsible accordion component that displays a header with a title and toggleable content section. Features a clickable header with chevron icon that expands/collapses the content area. Accepts a title input for the header text, isExpanded input to control initial state, and emits toggle events when expanded/collapsed. Content is projected using ng-content, making it flexible for any type of content. Styled with Bootstrap classes and includes hover effects and shadow styling.
 
 **Import Path**: `app/common/components/app-accordion/app-accordion.component`
 
@@ -16,7 +16,7 @@ Total Components: 13
 
 ## 2. AppActionButtonsComponent
 
-**Description**: A reusable component that renders a group of action buttons (edit, delete, view, approve, etc.) based on configuration. Takes an array of action names as input and emits click events when buttons are pressed. Each button automatically gets appropriate icons, CSS classes, and tooltips based on the action type. Supports common actions like 'edit', 'delete', 'view', 'approve', 'reject', 'info', and 'check' with predefined styling and FontAwesome icons. Perfect for data tables, cards, or any UI where you need consistent action buttons.
+**Description**: A reusable component that renders a group of action buttons (edit, delete, view, approve, etc.) based on configuration. Takes an array of action names as input and emits click events when buttons are pressed. Each button automatically gets appropriate FontAwesome icons, Bootstrap classes, and hover effects. Supports common actions like 'edit', 'delete', 'view', 'approve', 'reject', 'info', and 'check' with predefined styling, but can handle custom actions with default styling. Perfect for data tables, cards, or any UI where you need consistent action buttons.
 
 **Import Path**: `app/common/components/app-action-buttons/app-action-buttons.component`
 
@@ -36,7 +36,7 @@ Total Components: 13
 
 ## 4. AppButtonComponent
 
-**Description**: A reusable button component that provides customizable styling and behavior. It accepts inputs for label text, button type (button/submit/reset), disabled state, and visual variant (primary/secondary/danger). The component emits a 'clicked' event when the button is pressed (unless disabled). It includes hover effects and proper disabled state styling. Use this component whenever you need a styled button with consistent appearance across the application.
+**Description**: A reusable button component that provides customizable styling and behavior. It accepts inputs for label text, button type (button/submit/reset), disabled state, and visual variant (primary/secondary/danger). The component emits a 'clicked' event when the button is pressed (unless disabled). It includes hover effects and proper disabled state styling. Use this component anywhere you need a styled button with consistent appearance and behavior across the application.
 
 **Import Path**: `app/common/components/app-button/app-button.component`
 
@@ -46,7 +46,7 @@ Total Components: 13
 
 ## 5. AppConfirmDialogComponent
 
-**Description**: A reusable confirmation dialog component that displays a modal popup for user confirmation actions. It provides customizable title, message, and button labels through input properties. The component emits events when the user confirms or cancels the action. It includes a backdrop overlay and uses Bootstrap modal styling. Use this component when you need to ask users to confirm destructive or important actions like deletions, form submissions, or navigation changes.
+**Description**: A reusable confirmation dialog component that displays a modal popup for user confirmation actions. It provides customizable title, message, and button labels through input properties. The component emits events when the user confirms or cancels the action. It includes a backdrop overlay and uses Bootstrap modal styling. Use this component when you need to ask users to confirm destructive or important actions before proceeding.
 
 **Import Path**: `app/common/components/app-confirm-dialog/app-confirm-dialog.component`
 
@@ -56,7 +56,7 @@ Total Components: 13
 
 ## 6. AppDataTableComponent
 
-**Description**: A reusable data table component that displays tabular data with configurable columns and actions. It accepts an array of data objects and column definitions to render a responsive Bootstrap-styled table. Features include: loading state with spinner, empty state message, support for nested object properties, date formatting for date columns, and customizable action buttons for each row. The component emits events when action buttons are clicked, passing both the action type and the row data. Ideal for displaying lists of records with CRUD operations like edit/delete actions.
+**Description**: A reusable data table component that displays tabular data with configurable columns and actions. Supports multiple column types including text, date, status badges, boolean (with icons), and currency formatting. Features include loading state with spinner, empty state message, hover effects, and action buttons for each row. Accepts data array, column configuration with field mappings and headers, optional action buttons, and loading state. Emits actionClicked events when action buttons are pressed. Handles nested object properties in data fields and provides responsive table layout with Bootstrap styling.
 
 **Import Path**: `app/common/components/app-data-table/app-data-table.component`
 
@@ -66,7 +66,7 @@ Total Components: 13
 
 ## 7. AppDateRangeComponent
 
-**Description**: A date range picker component that allows users to select start and end dates with validation. It provides two date input fields (From and To) with Bootstrap styling and input group labels. The component validates that the start date is not after the end date and displays an error message if validation fails. It emits a rangeChange event with the selected date range when valid dates are entered. Use this component when you need users to select a date range for filtering, reporting, or any other date-based operations.
+**Description**: A date range picker component that allows users to select start and end dates with validation. It provides two date input fields (From and To) with Bootstrap styling and input group labels. The component validates that the start date is not after the end date and displays an error message if validation fails. It emits a rangeChange event with the selected date range when valid dates are entered. Use this component when you need users to select a date range for filtering, reporting, or any date-based operations.
 
 **Import Path**: `app/common/components/app-date-range/app-date-range.component`
 
@@ -76,7 +76,7 @@ Total Components: 13
 
 ## 8. AppFileUploadComponent
 
-**Description**: A reusable file upload component that provides file selection with validation capabilities. It accepts inputs for allowed file types (defaulting to PNG, JPEG, and PDF) and maximum file size in MB (defaulting to 5MB). The component validates selected files against these constraints and displays error messages for invalid files. It emits a fileSelected event when a valid file is chosen, making it suitable for forms and file management interfaces where controlled file uploads are needed.
+**Description**: A reusable file upload component that provides file selection with validation. It accepts inputs for allowed file types (allowedTypes array) and maximum file size in MB (maxSizeMB). The component validates selected files against these constraints and displays error messages for invalid files. It emits a fileSelected event when a valid file is chosen. Features include visual feedback showing the selected file name, file type validation, file size validation, and error display. Use this component when you need a standardized file upload interface with built-in validation across your application.
 
 **Import Path**: `app/common/components/app-file-upload/app-file-upload.component`
 
@@ -86,7 +86,7 @@ Total Components: 13
 
 ## 9. AppFooterComponent
 
-**Description**: A footer component that displays copyright information and a shared component banner. It shows the current year dynamically and includes the ELogbook Zydus copyright notice. The component features a dark background with white text, centered content, and a green gradient banner indicating it's a shared component. It's designed to be placed at the bottom of pages and automatically updates the year display.
+**Description**: A footer component that displays copyright information and a shared component banner. It shows the current year dynamically and includes the ELogbook Zydus copyright notice. The component features a dark blue background with white text, centered content, and a green gradient banner indicating it's a shared component. It's designed to be placed at the bottom of pages and automatically updates the year display.
 
 **Import Path**: `app/common/components/app-footer/app-footer.component`
 
@@ -96,7 +96,7 @@ Total Components: 13
 
 ## 10. AppFormWrapperComponent
 
-**Description**: A reusable form wrapper component that provides a consistent card-based layout for forms with a header, content area, and footer with action buttons. It includes inputs for customizing the title, submit/cancel button labels, loading state, and form validation state. The component uses content projection (ng-content) to allow any form content to be placed inside it. It emits events when submit or cancel buttons are clicked, with the submit button being disabled during loading or when the form is invalid. The wrapper provides a professional card design with shadow, rounded corners, and Bootstrap-styled buttons.
+**Description**: A reusable form wrapper component that provides a consistent card-based layout for forms with a header, content area, and footer with action buttons. It includes inputs for customizing the title, submit/cancel button labels, loading state, and form validation state. The component uses content projection (ng-content) to allow any form content to be placed inside it. It emits events when submit or cancel buttons are clicked, and automatically disables the submit button when the form is loading or invalid. Features a clean Bootstrap-styled card design with shadow and rounded corners.
 
 **Import Path**: `app/common/components/app-form-wrapper/app-form-wrapper.component`
 
@@ -106,9 +106,9 @@ Total Components: 13
 
 ## 11. AppHeaderComponent
 
-**Description**: A navigation header component for the ELogbook Zydus application that provides the main application title and dropdown navigation menus. Features three main navigation sections: Master (5 components), Records (4 components), and Logs (8 components). Each dropdown menu contains links to various application modules with hover-based toggle functionality. The component manages dropdown visibility states and provides visual indicators for shared components. Includes responsive styling with a dark theme and gradient banner indicating it's a shared component.
+**Description**: A navigation header component for the ELogbook Zydus application that provides the main application title and dropdown navigation menus. Features three main navigation sections: Master (5 components), Records (4 components), and Logs (8 components). Each dropdown menu contains links to various application modules with hover-based toggle functionality. The component manages dropdown visibility states and provides visual indicators for shared components. Includes responsive design with proper z-index management for dropdown overlays.
 
-**Import Path**: `app/components/app-header/app-header.component`
+**Import Path**: `app/app-header/app-header.component`
 
 **ID/Selector**: `app-header`
 
@@ -116,7 +116,7 @@ Total Components: 13
 
 ## 12. AppSearchFilterComponent
 
-**Description**: A reusable search input component with a search icon, customizable placeholder text, and clear functionality. Features a Bootstrap-styled input group with a search icon on the left and an optional clear button (X) that appears when text is entered. Emits search events both on Enter key press and on text change for real-time filtering. Accepts a placeholder input property to customize the search prompt text. Should be used wherever search/filter functionality is needed in forms or data tables.
+**Description**: A reusable search input component with a search icon, customizable placeholder text, and clear functionality. It features a Bootstrap-styled input group with a search icon on the left and an optional clear button (X) that appears when there's text. The component emits search events both on Enter key press and on text changes for real-time filtering. It accepts a 'placeholder' input to customize the search field text and outputs a 'search' event with the current search term. Use this component when you need to provide search/filter functionality in lists, tables, or any data display components.
 
 **Import Path**: `app/common/components/app-search-filter/app-search-filter.component`
 
@@ -126,7 +126,7 @@ Total Components: 13
 
 ## 13. AppStatusBadgeComponent
 
-**Description**: A reusable status badge component that displays status text with appropriate color-coded styling. Takes a status string and optional custom mapping to display colored badges (success, danger, warning, info, secondary). Automatically applies color classes based on common status keywords like 'active', 'pending', 'failed', etc. The status text is displayed in title case format. Useful for showing entity states, process statuses, or any categorical information that needs visual distinction.
+**Description**: A reusable status badge component that displays status text with appropriate color-coded styling. Takes a status string input and automatically applies CSS classes based on the status value using built-in heuristics (success for active/approved/completed, danger for inactive/rejected/failed, warning for pending/in-progress, info for draft/new, secondary as default). Also accepts an optional custom mapping object to override default color assignments. The status text is displayed in title case format within a pill-shaped badge with shadow styling.
 
 **Import Path**: `app/common/components/app-status-badge/app-status-badge.component`
 

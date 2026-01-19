@@ -183,7 +183,7 @@ function Footer() {
     <footer className="app-footer">
       <div className="footer-content">
         <div className="footer-logo">
-          <img src="/motherson-logo-png_seeklogo-544537.png" alt="Motherson Logo" className="footer-logo-img" />
+
           <img src="/codebenderslight.svg" alt="Codebenders Symbol" className="footer-symbol" />
         </div>
         <p className="footer-text">© 2026 Cloudangles. All rights reserved.</p>
@@ -211,7 +211,7 @@ function AppContent() {
       <TopBar />
       <div className="app-body">
         {showFileExplorer && <FileExplorer />}
-        <main className={`main-content ${!showFileExplorer ? 'main-content-full' : ''}`}>
+        <main className={`main-content ${!showFileExplorer ? 'main-content-full' : ''} ${location.pathname === '/' ? 'no-scroll' : ''}`}>
           <Routes>
             <Route path="/" element={<ChatPage />} />
             <Route

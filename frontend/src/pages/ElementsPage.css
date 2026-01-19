@@ -69,6 +69,7 @@
   height: 20px;
   cursor: pointer;
   accent-color: var(--primary-color);
+  flex-shrink: 0;
 }
 
 .element-name {
@@ -76,6 +77,8 @@
   font-weight: 500;
   color: var(--text-dark);
   flex: 1;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .generate-button {
@@ -240,11 +243,11 @@
     height: auto;
     max-height: none;
   }
-  
+
   .elements-sidebar {
     max-height: 400px;
   }
-  
+
   .reasoning-section {
     min-height: 500px;
   }
@@ -254,7 +257,7 @@
   .elements-sidebar {
     padding: 1.5rem;
   }
-  
+
   .reasoning-section {
     padding: 1.5rem;
   }
