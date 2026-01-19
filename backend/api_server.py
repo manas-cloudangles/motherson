@@ -30,7 +30,7 @@ from component_selector import (
     get_selected_components_with_metadata,
     update_component_metadata_with_selection
 )
-from session_manager import save_session, load_session, clear_session
+from workspace_state import save_workspace_state, load_workspace_state, clear_workspace_state
 from get_secrets import run_model
 from utils import extract_json_from_response
 
@@ -72,8 +72,6 @@ class HealthResponse(BaseModel):
     status: str
     message: str
 
-class ResetResponse(BaseModel):
-    status: str
 class ResetResponse(BaseModel):
     status: str
     message: str
@@ -444,7 +442,7 @@ async def generate_page(request_data: GeneratePageRequest):
             raise HTTPException(status_code=500, detail="Failed to generate page")
             
         # Save to session context
-        save_session(
+        save_workspace_state(
             page_data['html_code'],
             page_data['scss_code'],
             page_data['ts_code'],
@@ -487,7 +485,7 @@ async def chat_with_page(request_data: ChatRequest):
             raise HTTPException(status_code=400, detail="Message is required")
             
         # Load current session
-        session = load_session()
+        session = load_workspace_state()
         if not session:
             raise HTTPException(
                 status_code=400, 
@@ -558,7 +556,7 @@ Please modify the code to satisfy the user's request.
         new_ts = data.get('ts_code', ts)
         
         # Update session
-        save_session(new_html, new_scss, new_ts, user_message)
+        save_workspace_state(new_html, new_scss, new_ts, user_message)
         
         return {
             "status": "success",
@@ -591,7 +589,7 @@ async def reset_session():
         PAGE_REQUEST_FILE.unlink()
         
     # Clear session context
-    clear_session()
+    clear_workspace_state()
     
     return {"status": "success", "message": "Session reset - all stored data cleared"}
 

@@ -6,12 +6,12 @@ from datetime import datetime, timezone
 # File to store the current page context
 CURRENT_PAGE_CONTEXT_FILE = Path("current_page_context.json")
 
-def load_session() -> Optional[Dict[str, Any]]:
+def load_workspace_state() -> Optional[Dict[str, Any]]:
     """
     Load the current page context from file.
     
     Returns:
-        Dict or None: The session data including current_state and last_user_request
+        Dict or None: The workspace data including current_state and last_user_request
     """
     if not CURRENT_PAGE_CONTEXT_FILE.exists():
         return None
@@ -20,10 +20,10 @@ def load_session() -> Optional[Dict[str, Any]]:
         with open(CURRENT_PAGE_CONTEXT_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"❌ Error loading session: {e}")
+        print(f"❌ Error loading workspace state: {e}")
         return None
 
-def save_session(
+def save_workspace_state(
     html: str, 
     scss: str, 
     ts: str, 
@@ -55,13 +55,13 @@ def save_session(
     try:
         with open(CURRENT_PAGE_CONTEXT_FILE, 'w', encoding='utf-8') as f:
             json.dump(session_data, f, indent=2, ensure_ascii=False)
-        print(f"✓ Saved session context to: {CURRENT_PAGE_CONTEXT_FILE.absolute()}")
+        print(f"✓ Saved workspace state to: {CURRENT_PAGE_CONTEXT_FILE.absolute()}")
         return True
     except Exception as e:
-        print(f"❌ Error saving session: {e}")
+        print(f"❌ Error saving workspace state: {e}")
         return False
 
-def clear_session() -> bool:
+def clear_workspace_state() -> bool:
     """
     Delete the current page context file.
     
@@ -71,9 +71,9 @@ def clear_session() -> bool:
     if CURRENT_PAGE_CONTEXT_FILE.exists():
         try:
             CURRENT_PAGE_CONTEXT_FILE.unlink()
-            print(f"✓ Cleared session context file")
+            print(f"✓ Cleared workspace state file")
             return True
         except Exception as e:
-            print(f"❌ Error clearing session: {e}")
+            print(f"❌ Error clearing workspace state: {e}")
             return False
     return True
