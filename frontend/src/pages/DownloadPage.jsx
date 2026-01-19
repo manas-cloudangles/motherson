@@ -159,8 +159,8 @@ function DownloadPage() {
 
     // Handle *ngFor
     converted = converted.replace(/\*ngFor="let\s+(\w+)\s+of\s+([^"]+)"/g, (match, item, array) => {
-      // Preserve navigation instruction for the preview script to handle
-      return `data-ngfor="${array}" data-item="${item}"`
+      // For preview, we'll show a single instance
+      return ''
     })
 
     // Handle (mouseenter) and (mouseleave)
@@ -544,126 +544,6 @@ function DownloadPage() {
                 // Do nothing - buttons are clickable but non-functional
                 console.log('Button clicked (preview mode - no action):', handler);
             };
-
-            // --- ANGULAR SIMULATION LOGIC ---
-            setTimeout(() => {
-                if (!window.component) return;
-
-                // Function to evaluate simple angular expressions in context
-                const evalExpr = (expr, context) => {
-                    try {
-                        const func = new Function(...Object.keys(context), 'return ' + expr);
-                        return func(...Object.values(context));
-                    } catch (e) {
-                         // Fallback for simple property access
-                         const parts = expr.split('.');
-                         if (parts.length === 2 && context[parts[0]]) {
-                             return context[parts[0]][parts[1]];
-                         }
-                         return '';
-                    }
-                };
-
-                // Multiple passes to handle nested loops (limit 5 to prevent infinite)
-                for(let pass = 0; pass < 5; pass++) {
-                    const elements = document.querySelectorAll('[data-ngfor]');
-                    let processedCount = 0;
-
-                    elements.forEach(el => {
-                        // Skip if inside another ngFor that hasn't expanded yet
-                        let parent = el.parentElement;
-                        let isNested = false;
-                        while(parent) {
-                            if (parent.hasAttribute && parent.hasAttribute('data-ngfor')) {
-                                isNested = true;
-                                break;
-                            }
-                            parent = parent.parentElement;
-                        }
-                        if (isNested) return;
-
-                        // Process this element
-                        const arrayName = el.getAttribute('data-ngfor');
-                        const itemName = el.getAttribute('data-item');
-                        
-                        // Resolve array data from component
-                        let arrayData = window.component[arrayName];
-                        if (arrayData === undefined) {
-                            // Try to evaluate if it's an expression
-                            try {
-                                const func = new Function('comp', 'return comp.' + arrayName);
-                                arrayData = func(window.component);
-                            } catch(e) {}
-                        }
-
-                        const container = el.parentNode;
-                        const nextSibling = el.nextSibling;
-                        
-                        // Always remove the template element
-                        container.removeChild(el);
-                        
-                        if (Array.isArray(arrayData)) {
-                            arrayData.forEach((itemData, index) => {
-                                const clone = el.cloneNode(true);
-                                clone.removeAttribute('data-ngfor');
-                                clone.removeAttribute('data-item');
-                                clone.removeAttribute('data-ngif'); // Assumed true for list items for now
-
-                                // Process interpolation {{ }} in text nodes
-                                const walk = (node) => {
-                                    if (node.nodeType === 3) { // Text
-                                        node.nodeValue = node.nodeValue.replace(/\{\{([^}]+)\}\}/g, (m, expr) => {
-                                            const context = { 
-                                                [itemName]: itemData, 
-                                                ...window.component, // Allow access to component methods
-                                                index 
-                                            };
-                                            // Handle method calls specifically for this component (getCellValue)
-                                            if (expr.includes('getCellValue') && window.component.getCellValue) {
-                                                // Manually binding 'this' to window.component for the method call
-                                                try {
-                                                     // Cheap regex parse to map arguments
-                                                     const argsMatch = expr.match(/\(([^)]+)\)/);
-                                                     if (argsMatch) {
-                                                         const args = argsMatch[1].split(',').map(a => a.trim());
-                                                         const resolvedArgs = args.map(a => {
-                                                             if (a === itemName) return itemData;
-                                                             if (a.startsWith(itemName + '.')) return itemData[a.split('.')[1]];
-                                                             return evalExpr(a, context);
-                                                         });
-                                                         return window.component.getCellValue(...resolvedArgs);
-                                                     }
-                                                } catch(e) { console.error(e); }
-                                            }
-                                            
-                                            // General fallback
-                                            const val = evalExpr(expr.trim(), context);
-                                            return val !== undefined ? val : m;
-                                        });
-                                    } else if (node.nodeType === 1) {
-                                        // Handle attributes
-                                        Array.from(node.attributes).forEach(attr => {
-                                             // Simple property binding simulation
-                                        });
-                                        // Recurse
-                                        node.childNodes.forEach(walk);
-                                    }
-                                };
-                                walk(clone);
-
-                                if (nextSibling) {
-                                    container.insertBefore(clone, nextSibling);
-                                } else {
-                                    container.appendChild(clone);
-                                }
-                            });
-                        }
-                        processedCount++;
-                    });
-                    
-                    if (processedCount === 0) break;
-                }
-            }, 100);
         });
         
         // Reusable component scripts
