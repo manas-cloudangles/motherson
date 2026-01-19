@@ -14,16 +14,7 @@ function DownloadPage() {
   const componentName = appData.generatedFiles?.component_name?.replace('Component', '').toLowerCase() || 'my-component'
 
 
-  // Chat state
-  const [chatMessage, setChatMessage] = useState('')
-  const [chatHistory, setChatHistory] = useState([])
-  const [isChatLoading, setIsChatLoading] = useState(false)
-  const chatEndRef = useRef(null)
-
-  // Scroll to bottom of chat
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatHistory])
+  // Check if there's input from previous steps
   // Check if there's input from previous steps
   const hasInputFromPreviousSteps = completedPages.chat && completedPages.elements
 
@@ -746,73 +737,7 @@ function DownloadPage() {
   }
 
 
-  const handleSendMessage = async () => {
-    if (!chatMessage.trim() || isChatLoading) return
 
-    const userMsg = chatMessage.trim()
-    setChatMessage('')
-
-    // Add user message to history
-    setChatHistory(prev => [...prev, { role: 'user', content: userMsg }])
-    setIsChatLoading(true)
-
-    try {
-      const response = await fetch('http://localhost:5000/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMsg })
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (data.status !== 'success') {
-        throw new Error(data.message || 'Failed to update code')
-      }
-
-      // Update code
-      setHtmlContent(data.html_code)
-      setScssContent(data.scss_code)
-      setTsContent(data.ts_code)
-
-      // Update preview
-      const newPreview = generatePreviewContent(data.html_code, data.scss_code, data.ts_code)
-      setPreviewContent(newPreview)
-
-      // Update appData
-      updateAppData({
-        generatedFiles: {
-          html: data.html_code,
-          scss: data.scss_code,
-          ts: data.ts_code,
-          component_name: appData.generatedFiles?.component_name,
-          path_name: appData.generatedFiles?.path_name,
-          selector: appData.generatedFiles?.selector
-        }
-      })
-
-      // Add assistant message
-      setChatHistory(prev => [...prev, { role: 'assistant', content: 'I have updated the code based on your request.' }])
-
-    } catch (error) {
-      console.error('Chat error:', error)
-      setChatHistory(prev => [...prev, { role: 'assistant', content: `Error: ${error.message}` }])
-    } finally {
-      setIsChatLoading(false)
-    }
-  }
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
   // Show empty state if previous pages not completed
   if (!hasInputFromPreviousSteps) {
     return (
@@ -840,7 +765,7 @@ function DownloadPage() {
   return (
     <div className="download-page">
       <div className="download-container">
-        <div className={`download-layout ${'with-chat'}`}>
+        <div className="download-layout">
           {/* Left Side - Preview */}
           <div className="preview-section">
             <div className="preview-header">
@@ -937,51 +862,6 @@ function DownloadPage() {
                   spellCheck={false}
                 />
               )}
-            </div>
-          </div>
-
-          {/* Chat Interface */}
-          <div className="chat-container">
-            <div className="chat-header">
-              <h3>Chat with Page</h3>
-            </div>
-            <div className="chat-messages">
-              {chatHistory.length === 0 && (
-                <div className="message assistant">
-                  Hi! I can help you edit this page. Just tell me what you want to change.
-                </div>
-              )}
-              {chatHistory.map((msg, index) => (
-                <div key={index} className={`message ${msg.role}`}>
-                  {msg.content}
-                </div>
-              ))}
-              {isChatLoading && (
-                <div className="message assistant">
-                  Thinking...
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <div className="chat-input-area">
-              <textarea
-                className="chat-input"
-                placeholder="Type your request here..."
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                onKeyDown={handleKeyPress}
-                disabled={isChatLoading}
-              />
-              <button
-                className="send-btn"
-                onClick={handleSendMessage}
-                disabled={!chatMessage.trim() || isChatLoading}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </button>
             </div>
           </div>
         </div>

@@ -59,6 +59,16 @@ export const PageProgressProvider = ({ children }) => {
     }
   })
 
+  // Chat state
+  const [chatHistory, setChatHistory] = useState(() => {
+    if (hasActiveSession()) {
+      const saved = sessionStorage.getItem('chatHistory')
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
+  const [isChatLoading, setIsChatLoading] = useState(false)
+
   // Handle page reload detection and session management
   useEffect(() => {
     // If no active session flag exists, this is a reload or first visit
@@ -67,17 +77,17 @@ export const PageProgressProvider = ({ children }) => {
       sessionStorage.removeItem('pageProgress')
       sessionStorage.removeItem('appData')
     }
-    
+
     // Set app session flag to track active session (for navigation within app)
     sessionStorage.setItem('appSessionActive', 'true')
-    
+
     // Clear flag on page unload (reload/close) so next load starts fresh
     const handleBeforeUnload = () => {
       sessionStorage.removeItem('appSessionActive')
     }
-    
+
     window.addEventListener('beforeunload', handleBeforeUnload)
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
@@ -101,6 +111,11 @@ export const PageProgressProvider = ({ children }) => {
     sessionStorage.setItem('appData', JSON.stringify(dataToSave))
   }, [appData.devRequest, appData.components, appData.selectedComponents, appData.componentReasoning, appData.generatedFiles])
 
+  // Save chat history to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('chatHistory', JSON.stringify(chatHistory))
+  }, [chatHistory])
+
   const markPageComplete = (page) => {
     setCompletedPages(prev => ({ ...prev, [page]: true }))
   }
@@ -119,12 +134,68 @@ export const PageProgressProvider = ({ children }) => {
         ts: ''
       }
     })
+    setChatHistory([])
     sessionStorage.removeItem('pageProgress')
     sessionStorage.removeItem('appData')
+    sessionStorage.removeItem('chatHistory')
   }
 
   const updateAppData = (updates) => {
     setAppData(prev => ({ ...prev, ...updates }))
+  }
+
+  const sendChatMessage = async (message) => {
+    if (!message.trim() || isChatLoading) return
+
+    const userMsg = message.trim()
+
+    // Add user message to history
+    setChatHistory(prev => [...prev, { role: 'user', content: userMsg }])
+    setIsChatLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:5000/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMsg })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status !== 'success') {
+        throw new Error(data.message || 'Failed to update code')
+      }
+
+      // Update appData with new code
+      updateAppData({
+        generatedFiles: {
+          html: data.html_code,
+          scss: data.scss_code,
+          ts: data.ts_code,
+          // Preserve existing metadata if not returned
+          component_name: appData.generatedFiles?.component_name,
+          path_name: appData.generatedFiles?.path_name,
+          selector: appData.generatedFiles?.selector
+        }
+      })
+
+      // Add assistant message
+      setChatHistory(prev => [...prev, { role: 'assistant', content: 'I have updated the code based on your request.' }])
+
+      return data
+    } catch (error) {
+      console.error('Chat error:', error)
+      setChatHistory(prev => [...prev, { role: 'assistant', content: `Error: ${error.message}` }])
+      throw error
+    } finally {
+      setIsChatLoading(false)
+    }
   }
 
   const isPageAccessible = (page) => {
@@ -141,7 +212,10 @@ export const PageProgressProvider = ({ children }) => {
       resetProgress,
       isPageAccessible,
       appData,
-      updateAppData
+      updateAppData,
+      chatHistory,
+      isChatLoading,
+      sendChatMessage
     }}>
       {children}
     </PageProgressContext.Provider>

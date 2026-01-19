@@ -6,7 +6,7 @@ Total Components: 3
 
 ## 1. AppButtonComponent
 
-**Description**: A reusable button component that provides customizable styling and behavior. It accepts inputs for label text, button type (button/submit/reset), disabled state, and visual variant (primary/secondary/danger). The component emits a 'clicked' event when the button is pressed (unless disabled). It includes hover effects and proper disabled state handling. Use this component anywhere you need a styled button with consistent appearance and behavior across the application.
+**Description**: A reusable button component that provides customizable styling and behavior. It accepts inputs for label text, button type (button/submit/reset), disabled state, and visual variant (primary/secondary/danger). The component emits a 'clicked' event when the button is pressed (unless disabled). It includes hover effects and proper disabled state styling. Use this component anywhere you need a styled button with consistent appearance and behavior across the application.
 
 **Import Path**: `app/common/components/app-button/app-button.component`
 
@@ -16,7 +16,7 @@ Total Components: 3
 
 ## 2. AppFooterComponent
 
-**Description**: A footer component that displays copyright information and a shared component banner. It shows the current year dynamically and includes the ELogbook Zydus copyright notice. The component features a dark blue background with white text, centered content, and a green gradient banner indicating it's a shared component. It's designed to be placed at the bottom of pages and automatically updates the year display.
+**Description**: A footer component that displays copyright information and a shared component banner. It shows the current year dynamically and includes the ELogbook Zydus copyright notice. The component features a dark blue background with white text and includes a green gradient banner indicating it's a shared component. It's designed to be placed at the bottom of pages and automatically updates the year display.
 
 **Import Path**: `app/common/components/app-footer/app-footer.component`
 
