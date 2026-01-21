@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from app.core.config import COMPONENT_METADATA_FILE, COMPONENTS_DIR
+from app.core.config import COMPONENT_METADATA_FILE, COMPONENTS_DIR, COMPONENT_README_FILE
 from app.services.llm_service import run_model
 from app.utils.parsers import extract_json_from_response
 from app.utils.file_ops import read_file_safe
@@ -13,6 +13,7 @@ from app.prompts.selection import COMPONENT_SELECTION_SYSTEM_PROMPT, format_sele
 class MetadataService:
     def __init__(self):
         self.metadata_file = COMPONENT_METADATA_FILE
+        self.readme_file = COMPONENT_README_FILE
     
     def load_metadata(self) -> List[Dict]:
         if self.metadata_file.exists():
@@ -28,8 +29,52 @@ class MetadataService:
             with open(self.metadata_file, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2, ensure_ascii=False)
             print(f"Saved metadata to {self.metadata_file}")
+            
+            # Also save README
+            self.save_readme(metadata)
         except Exception as e:
             print(f"Error saving metadata: {e}")
+
+    def generate_readme(self, metadata_list: List[Dict]) -> str:
+        """
+        Generate README documentation.
+        """
+        readme = "# Angular Component Metadata\n\n"
+        readme += f"Total Components: {len(metadata_list)}\n\n"
+        readme += "---\n\n"
+        
+        for idx, metadata in enumerate(metadata_list, 1):
+            name = metadata.get('name', 'Unknown')
+            description = metadata.get('description', 'N/A')
+            import_path = metadata.get('import_path', 'N/A')
+            id_name = metadata.get('id_name', 'null')
+            
+            readme += f"## {idx}. {name}\n\n"
+            readme += f"**Description**: {description}\n\n"
+            readme += f"**Import Path**: `{import_path}`\n\n"
+            readme += f"**ID/Selector**: `{id_name}`\n\n"
+            readme += "---\n\n"
+        
+        return readme
+
+    def save_readme(self, metadata_list: List[Dict]) -> bool:
+        """
+        Save README documentation.
+        """
+        if not metadata_list:
+            return False
+        
+        try:
+            readme_content = self.generate_readme(metadata_list)
+            
+            with open(self.readme_file, 'w', encoding='utf-8') as f:
+                f.write(readme_content)
+            
+            print(f"Saved README: {self.readme_file}")
+            return True
+        except Exception as e:
+            print(f"Error saving README: {e}")
+            return False
 
     async def analyze_components_from_files(self, temp_dir: Path) -> List[Dict]:
         """
