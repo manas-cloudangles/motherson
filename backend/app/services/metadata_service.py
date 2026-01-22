@@ -7,8 +7,7 @@ from app.core.config import COMPONENT_METADATA_FILE, COMPONENTS_DIR, COMPONENT_R
 from app.services.llm_service import run_model
 from app.utils.parsers import extract_json_from_response
 from app.utils.file_ops import read_file_safe
-from app.prompts.metadata import METADATA_EXTRACTION_SYSTEM_PROMPT, format_metadata_user_prompt
-from app.prompts.selection import COMPONENT_SELECTION_SYSTEM_PROMPT, format_selection_user_prompt
+from app.prompts import Metadata, Selection
 
 class MetadataService:
     def __init__(self):
@@ -128,10 +127,10 @@ class MetadataService:
         html_content = read_file_safe(comp_info['html_file']) if comp_info['html_file'] else ""
         scss_content = read_file_safe(comp_info['scss_file']) if comp_info['scss_file'] else ""
         
-        user_msg = format_metadata_user_prompt(comp_info['base_name'], ts_content, html_content, scss_content)
+        user_msg = Metadata.format_metadata_user_prompt(comp_info['base_name'], ts_content, html_content, scss_content)
         
         try:
-            response = await run_model(METADATA_EXTRACTION_SYSTEM_PROMPT, user_msg)
+            response = await run_model(Metadata.system_prompt, user_msg)
             json_str = extract_json_from_response(response)
             metadata = json.loads(json_str)
             
@@ -168,10 +167,10 @@ class MetadataService:
              doc += f"   Description: {comp.get('description', 'N/A')}\n"
              doc += f"   ---\n\n"
         
-        user_msg = format_selection_user_prompt(page_request, doc)
+        user_msg = Selection.format_selection_user_prompt(page_request, doc)
         
         try:
-            response = await run_model(COMPONENT_SELECTION_SYSTEM_PROMPT, user_msg)
+            response = await run_model(Selection.system_prompt, user_msg)
             json_str = extract_json_from_response(response)
             selection_data = json.loads(json_str)
             return selection_data

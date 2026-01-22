@@ -3,8 +3,7 @@ from typing import List, Dict, Optional
 
 from app.services.llm_service import run_model
 from app.utils.parsers import extract_json_from_response
-from app.prompts.generation import create_generation_system_prompt, format_generation_user_prompt
-from app.prompts.chat import CHAT_SYSTEM_PROMPT, format_chat_user_prompt
+from app.prompts import Generation, Chat
 
 class GenerationService:
     async def generate_page(self, page_request: str, components: List[Dict]) -> Optional[Dict]:
@@ -21,8 +20,8 @@ class GenerationService:
                 components_doc += f"Reasoning/Usage Note: {comp['reasoning']}\n"
             components_doc += "---\n\n"
             
-        system_prompt = create_generation_system_prompt(components_doc)
-        user_message = format_generation_user_prompt(page_request)
+        system_prompt = Generation.system_prompt(components_doc)
+        user_message = Generation.format_generation_user_prompt(page_request)
         
         try:
             response = await run_model(system_prompt, user_message)
@@ -37,10 +36,10 @@ class GenerationService:
         """
         Modify existing page code based on chat message.
         """
-        user_message = format_chat_user_prompt(html, scss, ts, message)
+        user_message = Chat.format_chat_user_prompt(html, scss, ts, message)
         
         try:
-            response = await run_model(CHAT_SYSTEM_PROMPT, user_message)
+            response = await run_model(Chat.system_prompt, user_message)
             json_str = extract_json_from_response(response)
             data = json.loads(json_str)
             return data
