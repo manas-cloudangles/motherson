@@ -4,10 +4,20 @@ import boto3
 from botocore.config import Config
 import json
 import sys
+from pathlib import Path
 import aioboto3
 import os
 from botocore.exceptions import ClientError
-from app.core.config import AWS_PROFILE, LLM_REGION, LLM_MAX_TOKENS, LLM_TEMPERATURE
+
+# Ensure backend directory is in Python path for imports
+_backend_dir = Path(__file__).resolve().parent.parent.parent
+if str(_backend_dir) not in sys.path:
+    sys.path.insert(0, str(_backend_dir))
+
+from app.core.config import (
+    AWS_PROFILE, LLM_REGION, LLM_MAX_TOKENS, LLM_TEMPERATURE,
+    LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL
+)
 
 # -- Utility --
 
@@ -31,7 +41,11 @@ async def retry_bedrock(operation, *args, max_retries=6, **kwargs):
     raise RuntimeError("Failed after retries")
 
 
-async def run_model(system_prompt: str, user_message: str):
+# ============================================================================
+# BEDROCK IMPLEMENTATION
+# ============================================================================
+
+async def run_model_bedrock(system_prompt: str, user_message: str):
     """
     Run a model call to Bedrock with given prompts.
     """
@@ -73,6 +87,73 @@ async def run_model(system_prompt: str, user_message: str):
 
         parsed = json.loads(body_content)
         return parsed["content"][0]["text"]
+
+
+# ============================================================================
+# GROQ IMPLEMENTATION
+# ============================================================================
+
+async def run_model_groq(system_prompt: str, user_message: str):
+    """
+    Run a model call to Groq API with given prompts.
+    """
+    try:
+        from groq import Groq
+    except ImportError as exc:
+        raise ImportError(
+            "Groq SDK not installed. Install it with: pip install groq"
+        ) from exc
+    
+    if not GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY environment variable is not set. Please set it in your .env file.")
+    
+    client = Groq(api_key=GROQ_API_KEY)
+    
+    # Groq API format
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message}
+    ]
+    
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=messages,
+        temperature=LLM_TEMPERATURE,
+        max_tokens=LLM_MAX_TOKENS,
+    )
+    
+    return response.choices[0].message.content
+
+
+# ============================================================================
+# UNIFIED INTERFACE - TOGGLE BETWEEN PROVIDERS
+# ============================================================================
+
+async def run_model(system_prompt: str, user_message: str):
+    """
+    Unified interface to run model calls.
+    Switches between Bedrock and Groq based on LLM_PROVIDER config.
+    
+    To switch providers:
+    - Set environment variable: LLM_PROVIDER=bedrock (or groq)
+    - Or modify the .env file: LLM_PROVIDER=groq
+    - Or comment/uncomment the provider check below for manual toggle
+    """
+    # ========================================================================
+    # TOGGLE POINT: Comment/uncomment to switch providers manually
+    # ========================================================================
+    
+    # Option 1: Use environment variable (recommended)
+    if LLM_PROVIDER.lower() == "groq":
+        print("[LLM] Using Groq provider")
+        return await run_model_groq(system_prompt, user_message)
+    else:
+        print("[LLM] Using Bedrock provider")
+        return await run_model_bedrock(system_prompt, user_message)
+    
+    # Option 2: Manual toggle (uncomment one, comment the other)
+    # return await run_model_groq(system_prompt, user_message)  # Use Groq
+    # return await run_model_bedrock(system_prompt, user_message)  # Use Bedrock
 
 
 async def run_model_qwen(system_prompt: str, user_message: str):

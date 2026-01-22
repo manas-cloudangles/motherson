@@ -6,6 +6,22 @@ Contains paths, constants, and settings used across the application.
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# Look for .env in backend directory first, then project root
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+BACKEND_DIR = BASE_DIR / "backend"
+ENV_FILE = BACKEND_DIR / ".env"
+
+# Try backend/.env first, then root/.env
+if ENV_FILE.exists():
+    load_dotenv(ENV_FILE)
+elif (BASE_DIR / ".env").exists():
+    load_dotenv(BASE_DIR / ".env")
+else:
+    # If no .env found, still try to load from default location
+    load_dotenv()
 
 # Base directory - the root of the project (c:\motherson\motherson)
 # backend/app/core/config.py -> core -> app -> backend -> root
@@ -91,6 +107,11 @@ LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "35000"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_REGION = os.getenv("AWS_REGION", "us-east-1")
 AWS_PROFILE = os.getenv("AWS_PROFILE", "cloudangles-mlops")
+
+# LLM Provider Selection - Set to "bedrock" or "groq"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "bedrock")  # Options: "bedrock" or "groq"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")  # Your Groq API key
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")  # Groq model name
 
 # File extensions to process
 COMPONENT_FILE_EXTENSIONS = ['.ts', '.html', '.scss']
