@@ -2,9 +2,12 @@ from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any
 
 from app.schemas.page import GeneratePageRequest, GeneratePageResponse
+
 from app.services.generation_service import GenerationService
 from app.services.metadata_service import MetadataService
 from app.services.workspace_service import WorkspaceService
+
+from app.services.audit_service import AuditService
 
 router = APIRouter()
 
@@ -44,6 +47,21 @@ async def generate_page(request_data: GeneratePageRequest):
         
         if not page_data:
              raise HTTPException(status_code=500, detail="Failed to generate page")
+
+        code_input = {
+            "html": page_data['html_code'],
+            "css": page_data['scss_code'],
+            "ts": page_data['ts_code'],
+            "component_name": page_data['component_name'],
+            "path_name": page_data['path_name'],
+            "selector": page_data['selector']
+        }
+
+        final_code = await AuditService.orchestrate_agents(code_input)
+
+        page_data['html_code'] = final_code.get('html', page_data['html_code'])
+        page_data['scss_code'] = final_code.get('css', page_data['scss_code'])
+        page_data['ts_code'] = final_code.get('ts', page_data['ts_code'])
              
         workspace_service.save_state(
             page_data['html_code'],

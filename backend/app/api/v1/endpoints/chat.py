@@ -4,6 +4,8 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.generation_service import GenerationService
 from app.services.workspace_service import WorkspaceService
 
+from app.services.audit_service import AuditService
+
 router = APIRouter()
 
 generation_service = GenerationService()
@@ -29,10 +31,18 @@ async def chat_with_page(request_data: ChatRequest):
         
         if not new_data:
              raise HTTPException(status_code=500, detail="Failed to get chat response")
+            
+        code_input = {
+            "html": new_data['html_code'],
+            "css": new_data['scss_code'],
+            "ts": new_data['ts_code'],
+        }
+
+        final_code = await AuditService.orchestrate_agents(code_input)
              
-        new_html = new_data.get('html_code', html)
-        new_scss = new_data.get('scss_code', scss)
-        new_ts = new_data.get('ts_code', ts)
+        new_html = final_code.get('html', new_data['html_code'])
+        new_scss = final_code.get('css', new_data['scss_code'])
+        new_ts = final_code.get('ts', new_data['ts_code'])
         
         workspace_service.save_state(new_html, new_scss, new_ts, user_message)
         
