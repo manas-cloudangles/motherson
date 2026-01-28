@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
-from app.core.config import LOG_LEVEL
+from app.config.config import LOG_LEVEL
 
 app = FastAPI(
     title="Angular Page Generator API",

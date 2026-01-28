@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from app.core.config import COMPONENT_METADATA_FILE, COMPONENTS_DIR, COMPONENT_README_FILE
+from app.config.config import COMPONENT_METADATA_FILE, COMPONENTS_DIR, COMPONENT_README_FILE
 from app.services.llm_service import run_model
 from app.utils.parsers import extract_json_from_response
 from app.utils.file_ops import read_file_safe

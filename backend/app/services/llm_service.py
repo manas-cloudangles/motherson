@@ -14,7 +14,7 @@ _backend_dir = Path(__file__).resolve().parent.parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from app.core.config import (
+from app.config.config import (
     AWS_PROFILE, LLM_REGION, LLM_MAX_TOKENS, LLM_TEMPERATURE,
     LLM_PROVIDER, GROQ_API_KEY, GROQ_MODEL
 )

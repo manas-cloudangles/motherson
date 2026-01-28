@@ -30,13 +30,14 @@ class AuditService:
             return True, {}
     
     @staticmethod
-    async def orchestrate_agents(code_input: dict, max_iterations: int = 3) -> dict: 
+    async def orchestrate_agents(code_input: dict, user_request: str, max_iterations: int = 3) -> dict: 
         """
         Orchestrates the verifier and refiner agents.
 
         Args:
             code_input: Dictionary containing 'html', 'ts', 'css' keys
-            max_iterations: Maximum number of refinement iterations (default: 2)
+            user_request: The original user request for functional validation
+            max_iterations: Maximum number of refinement iterations (default: 3)
 
         Returns:
             Final refined code or original code if no refinement needed
@@ -56,6 +57,7 @@ class AuditService:
             #Prepare prompt
             user_prompt_verifier = Verifier.format_verifier_user_prompt(
                                             current_code,
+                                            user_request,
                                             iteration,
                                             previous_audit_data
                                         )
@@ -86,7 +88,8 @@ class AuditService:
             if iteration < max_iterations:
                 user_prompt_refiner = Refiner.format_refiner_user_prompt(
                     current_code,
-                    audit_data
+                    audit_data,
+                    user_request
                 )
                 try:
                     refined_response = await run_model(

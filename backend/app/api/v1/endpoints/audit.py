@@ -15,7 +15,7 @@ async def audit_code(request: AuditRequest):
         }
         
         # Call the service
-        final_code = await AuditService.orchestrate_agents(code_input)
+        final_code = await AuditService.orchestrate_agents(code_input, request.user_request)
         
         # Since orchestrate_agents returns just the code (best_code), 
         # we wrap it in our response format.

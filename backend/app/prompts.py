@@ -361,6 +361,15 @@ class Verifier:
                         • Flag: [innerHTML], bypassSecurityTrustHtml, Direct DOM access,
                             eval, new Function, Unsafe [src]/[href] bindings, Unvalidated Renderer2
                     
+        check: Boolean check logic...
+                    
+                    5. FUNCTIONAL COMPLIANCE (USER REQUEST)
+                    
+                    a) User Requirement Check
+                        • Does the code satisfy the specific request: "{user_request}"?
+                        • Flag if components are missing or behavior is wrong vs request.
+                        • Severity: CRITICAL if request is ignored, WARNING if partially met.
+
                     ════════════════════════════════════════════════════════════════════════════════
                     HEALTH SCORE CALCULATION (MANDATORY)
                     ════════════════════════════════════════════════════════════════════════════════
@@ -460,19 +469,18 @@ class Verifier:
                     """
 
     @staticmethod
-    def format_verifier_user_prompt(current_code: dict, iteration: int = 1, previous_audit_data: dict = None) -> str:
+    def format_verifier_user_prompt(current_code: dict, user_request: str, iteration: int = 1, previous_audit_data: dict = None) -> str:
+        data = {
+            "current_code": current_code,
+            "user_request": user_request
+        }
         if previous_audit_data and iteration > 1:
-            user_prompt_verifier = json.dumps({
-                "current_code": current_code,
-                "previous_audit": {
-                    "iteration": iteration - 1,
-                    "health_score": previous_audit_data.get('audit_summary', {}).get('health_score'),
-                    "findings": previous_audit_data.get('findings', [])
-                }
-            }, indent=2)
-        else:
-            user_prompt_verifier = json.dumps(current_code, indent=2)
-        return user_prompt_verifier
+            data["previous_audit"] = {
+                "iteration": iteration - 1,
+                "health_score": previous_audit_data.get('audit_summary', {}).get('health_score'),
+                "findings": previous_audit_data.get('findings', [])
+            }
+        return json.dumps(data, indent=2)
 class Refiner:
     system_prompt = """
                     ════════════════════════════════════════════════════════════════════════════════
@@ -673,9 +681,10 @@ class Refiner:
                     No conversational text.
                     """
     @staticmethod
-    def format_refiner_user_prompt(current_code: dict, audit_report: dict) -> str:
+    def format_refiner_user_prompt(current_code: dict, audit_report: dict, user_request: str) -> str:
         refiner_input = {
             "original_code": current_code,
-            "audit_report": audit_report
+            "audit_report": audit_report,
+            "user_request": user_request
         }
         return json.dumps(refiner_input, indent=2)

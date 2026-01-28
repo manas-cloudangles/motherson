@@ -1,7 +1,7 @@
 import boto3
 import json
 import sys
-from app.core.config import LLM_REGION
+from app.config.config import LLM_REGION
 
 def get_secret(secret_name, region_name=LLM_REGION):
     """
