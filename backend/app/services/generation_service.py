@@ -19,6 +19,11 @@ class GenerationService:
             if comp.get('reasoning'):
                 components_doc += f"Reasoning/Usage Note: {comp['reasoning']}\n"
             components_doc += "---\n\n"
+        
+        if not components:
+            components_doc += "WARNING: NO REUSABLE COMPONENTS SELECTED/AVAILABLE.\n"
+            components_doc += "You MUST generate all UI elements (headers, footers, tables, buttons) from scratch using standard HTML/SCSS.\n"
+            components_doc += "Do not reference any <app-*> components that are not listed above.\n"
             
         system_prompt = Generation.system_prompt(components_doc)
         user_message = Generation.format_generation_user_prompt(page_request)

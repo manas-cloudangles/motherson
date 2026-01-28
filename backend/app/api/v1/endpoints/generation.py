@@ -40,8 +40,8 @@ async def generate_page(request_data: GeneratePageRequest):
              if is_req:
                  required_components.append(comp)
         
-        if not required_components:
-             raise HTTPException(status_code=400, detail="No required components selected")
+        # if not required_components:
+        #      raise HTTPException(status_code=400, detail="No required components selected")
              
         page_data = await generation_service.generate_page(page_request, required_components)
         

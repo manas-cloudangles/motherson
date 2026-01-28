@@ -1,1 +1,1 @@
-make a page with data table having 2 columns. The 2 columns need to be "EMP ID" and "Salary". There needs to be 2 boxes where I can fill EMP ID and Salary and a button. When I input EMP ID in the EMP ID box and salary in the salary box and then press the submit button. The table needs to get updated.
+make a page with header, footer, date range, and a button that updates the shown date range in the center of the page.

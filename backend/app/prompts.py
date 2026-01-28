@@ -57,6 +57,19 @@ class Generation:
                 IF the user doesn't want to use the component, but the user request requires you to use it, generate the component without using that id, but generating it normally.
                 Example: If the user doesn't want to use app-header component, but create a page with header, use <header> tag and create a new one instead of using <app-header></app-header> component.
 
+                FALLBACK INSTRUCTION (CRITICAL):
+                IF the user request mentions a standard UI element (e.g., "header", "footer", "button") BUT you do not see a matching component in the "Available Angular Components" list above:
+                - You MUST implement that element from scratch using standard HTML tags (e.g., <header>, <footer>, <button>).
+                - DO NOT omit the element just because the reusable component is missing.
+                - DO NOT hallucinate component selectors that are not in the list.
+                - Fulfill the visual requirement of the user request using plain HTML/SCSS.
+
+                STRICT PROHIBITION (HALLUCINATION CHECK):
+                - You are FORBIDDEN from using any custom component selector (e.g. <app-header>, <app-sidebar>) that is NOT explicitly listed in the "Available Angular Components" above.
+                - If the list above is empty or does not contain a specific component (like 'app-header'), you MUST NOT generate the <app-header> tag.
+                - INSTEAD, you MUST write the full HTML implementation (e.g., <header class="header">...</header>) within the page.
+                - Violated this rule will result in broken code. CHECK YOURSELF: Does <app-xyz> exist in the list? If no, use <div>/standard tags.
+
                 TYPESCRIPT REQUIREMENTS:
                 - Import Component and OnInit from '@angular/core'
                 - Use @Component decorator with selector, templateUrl, styleUrls
@@ -632,6 +645,14 @@ class Refiner:
                     Pass the verifier with zero repeated findings
                     
                     Produce no further diffs on re-run
+
+                    10. Component Integrity (CRITICAL)
+                    
+                    DO NOT replace standard HTML tags (div, header, footer) with custom component selectors (app-*) unless those selectors ALREADY EXIST in the `original_code`.
+                    
+                    You do not know which custom components are available in the project. Assume only the ones currently used in `original_code` are valid.
+                    
+                    Do NOT "clean up" raw HTML by converting it to assumed components like <app-header> or <app-card>.
                     
                     Output Format (STRICT JSON ONLY)
                     {
