@@ -1,5 +1,6 @@
 import json
 from typing import Dict
+
 class Chat:
     system_prompt = """You are an expert Angular developer.
                     You have the current state of an Angular component (HTML, SCSS, TS).

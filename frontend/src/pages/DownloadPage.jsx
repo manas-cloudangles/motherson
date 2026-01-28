@@ -243,7 +243,8 @@ function DownloadPage() {
     // Fetch or generate Angular component files from backend
     const generateFiles = async () => {
       setIsLoading(true)
-      try {
+            try {
+        // 1. Start Generation Task (Background)
         const response = await fetch('http://localhost:5000/api/generate-page', {
           method: 'POST',
           headers: {
@@ -251,7 +252,6 @@ function DownloadPage() {
           },
           body: JSON.stringify({
             pageRequest: appData.devRequest || ''
-            // Note: selectedComponentIds is no longer needed - backend uses required:true from metadata file
           })
         })
 
@@ -260,7 +260,29 @@ function DownloadPage() {
           throw new Error(errorData.detail || `Server error: ${response.status}`)
         }
 
-        const data = await response.json()
+        const initData = await response.json()
+        const taskId = initData.task_id
+        
+        console.log(`Generation Task Started: ${taskId}. Polling...`)
+
+        // 2. Poll for Results
+        let data = null
+        while (true) {
+             const statusRes = await fetch(`http://localhost:5000/api/tasks/${taskId}`)
+             if (!statusRes.ok) throw new Error('Failed to poll status')
+             
+             const taskStatus = await statusRes.json()
+             
+             if (taskStatus.status === 'completed') {
+                 data = taskStatus.result
+                 break
+             } else if (taskStatus.status === 'failed') {
+                 throw new Error(taskStatus.error || 'Generation task failed')
+             }
+             
+             // Wait 2 seconds
+             await new Promise(resolve => setTimeout(resolve, 2000))
+        }
 
         if (data.status !== 'success') {
           throw new Error(data.message || 'Failed to generate page')
@@ -275,14 +297,7 @@ function DownloadPage() {
           status: data.status,
           hasHtml: !!html,
           hasScss: !!scss,
-          hasTs: !!ts,
-          htmlLength: html.length,
-          scssLength: scss.length,
-          tsLength: ts.length,
-          htmlPreview: html.substring(0, 200),
-          scssPreview: scss.substring(0, 200),
-          tsPreview: ts.substring(0, 200),
-          fullData: data
+          hasTs: !!ts
         })
 
         // Validate that we received actual code

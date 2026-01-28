@@ -1,3 +1,5 @@
+import asyncio
+from app.services.task_store import TaskStore, TaskStatus
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from typing import List, Dict, Any
 import shutil
@@ -13,6 +15,7 @@ from app.schemas.component import (
 from app.services.metadata_service import MetadataService
 from app.services.workspace_service import WorkspaceService
 
+task_store = TaskStore()
 router = APIRouter()
 
 # Dependency injection for services could be added here, 
@@ -81,30 +84,48 @@ async def select_components(request_data: ComponentSelectRequest):
         page_request = request_data.pageRequest or workspace_service.load_page_request()
         if not page_request:
             raise HTTPException(status_code=400, detail="Page request is required")
-            
-        metadata = metadata_service.load_metadata()
-        if not metadata:
-             raise HTTPException(status_code=400, detail="No metadata available")
-             
-        selection = await metadata_service.select_components(page_request, metadata)
         
-        updated_metadata = metadata_service.update_metadata_with_selection(selection, metadata)
-        metadata_service.save_metadata(updated_metadata)
-        
-        selected_components = [c for c in updated_metadata if c.get('required')]
-        
+        task_id = task_store.create_task()
+
+        asyncio.create_task(process_selection_task(task_id, page_request))
+
         return {
-            "status": "success",
-            "all_components": updated_metadata,
-            "selected_component_ids": selection.get('selected_components', []),
-            "reasoning": selection.get('reasoning', {}),
-            "selected_components": selected_components
+            "status": "processing",
+            "task_id": task_id
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
+        print(f"Error in select_components: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+async def process_selection_task(task_id: str, page_request: str):
+    try:
+        metadata = metadata_service.load_metadata()
+        if not metadata:
+            task_store.update_task_error(task_id, "No metadata available")
+            return
+        
+        selection = await metadata_service.select_components(page_request, metadata)
+
+        updated_metadata = metadata_service.update_metadata_with_selection(selection, metadata)
+        metadata_service.save_metadata(updated_metadata)
+
+        selected_components = [c for c in updated_metadata if c.get('required')]
+        
+        result = {
+            "all_components" : updated_metadata, 
+            "selected_component_ids" : selection.get('selected_components', []),
+            "reasoning" : selection.get('reasoning', {}),
+            "selected_components" : selected_components 
+        }
+
+        task_store.update_task_result(task_id, result)
+
+    except Exception as e:
+        print(f"Error in process_selection_task: {e}")
+        task_store.update_task_error(task_id, str(e))
+
+            
 @router.post("/update-component-metadata", response_model=UpdateComponentMetadataResponse)
 async def update_component_metadata(request_data: UpdateComponentMetadataRequest):
     try:
@@ -119,3 +140,4 @@ async def update_component_metadata(request_data: UpdateComponentMetadataRequest
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

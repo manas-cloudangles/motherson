@@ -22,8 +22,7 @@ function ElementsPage() {
       if (!completedPages.chat) return
 
       setIsLoading(true)
-      try {
-        // First, use components from appData (set by ChatPage)
+            try {
         const componentsFromChat = appData.components || []
 
         if (componentsFromChat.length === 0) {
@@ -32,79 +31,80 @@ function ElementsPage() {
           return
         }
 
-        // Transform backend component format to frontend format
-        // Backend format: { name, id_name, description, ... }
-        // Frontend format: { id, name, ... }
+        // Transform components (Same as before)
         const transformedComponents = componentsFromChat.map(comp => {
-          // Format name: remove "App" prefix, "Component" suffix, and add spaces
           let displayName = comp.name
           if (displayName.startsWith('App')) displayName = displayName.substring(3)
           if (displayName.endsWith('Component')) displayName = displayName.substring(0, displayName.length - 9)
-
-          // Add spaces before capital letters (e.g. "DateRange" -> "Date Range")
           displayName = displayName.replace(/([A-Z])/g, ' $1').trim()
-
           return {
             id: comp.id_name || comp.name,
             name: displayName,
-            originalName: comp.name, // Keep original name just in case
+            originalName: comp.name,
             description: comp.description,
             import_path: comp.import_path,
-            ...comp // Include all other properties
+            ...comp
           }
         })
 
         setComponents(transformedComponents)
         updateAppData({ components: transformedComponents })
 
-        // Now call backend API to get component selection and reasoning
+        // 1. Start Background Task
         const response = await fetch('http://localhost:5000/api/select-components', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            pageRequest: appData.devRequest || ''
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageRequest: appData.devRequest || '' })
         })
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ detail: `Server error: ${response.status}` }))
-          throw new Error(errorData.detail || `Server error: ${response.status}`)
+        if (!response.ok) throw new Error('Failed to start selection task')
+        
+        const initData = await response.json()
+        const taskId = initData.task_id
+
+        console.log(`Task Started: ${taskId}. Polling for results...`)
+
+        // 2. Poll for Results
+        let finalData = null
+        while (true) {
+             const statusRes = await fetch(`http://localhost:5000/api/tasks/${taskId}`)
+             if (!statusRes.ok) throw new Error('Failed to poll status')
+             
+             const taskStatus = await statusRes.json()
+             
+             if (taskStatus.status === 'completed') {
+                 finalData = taskStatus.result
+                 break
+             } else if (taskStatus.status === 'failed') {
+                 throw new Error(taskStatus.error || 'Selection task failed')
+             }
+             
+             // Wait 2 seconds
+             await new Promise(resolve => setTimeout(resolve, 2000))
         }
 
-        const data = await response.json()
+        console.log('Selection Complete:', finalData)
 
-        if (data.status !== 'success') {
-          throw new Error(data.message || 'Failed to select components')
-        }
-
-        // Set AI reasoning from backend response
-        const reasoning = data.reasoning || {}
+        // 3. Use Data (Same logic as before)
+        const reasoning = finalData.reasoning || {}
         setAiReasoning(reasoning)
 
-        // Always use AI reasoning from backend (it's based on the page request)
         if (reasoning && Object.keys(reasoning).length > 0) {
           setEditedReasoning(reasoning)
           updateAppData({ componentReasoning: reasoning })
         } else if (appData.componentReasoning) {
-          // Fallback to existing reasoning if backend didn't provide any
           setEditedReasoning(appData.componentReasoning)
         }
 
-        // Always auto-select components based on backend's AI selection
-        // This ensures components are selected based on the user's page request from page 1
-        const selectedIds = data.selected_component_ids || []
+        const selectedIds = finalData.selected_component_ids || []
         if (selectedIds.length > 0) {
           setSelectedComponents(selectedIds)
           updateAppData({ selectedComponents: selectedIds })
-          console.log(`✓ Auto-selected ${selectedIds.length} components based on page request`)
-        } else {
-          console.log('⚠ No components were auto-selected by the backend')
         }
+        
       } catch (error) {
         console.error('Error initializing components:', error)
-        alert(`Error: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
+        alert(`Error: ${error.message}`)
       } finally {
         setIsLoading(false)
       }

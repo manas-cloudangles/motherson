@@ -8,6 +8,7 @@ api_router.include_router(components.router, prefix="", tags=["Components"]) # O
 api_router.include_router(generation.router, prefix="", tags=["Generation"])
 api_router.include_router(chat.router, prefix="", tags=["Chat"])
 api_router.include_router(audit.router, prefix="", tags=["Audit"])
+api_router.include_router(tasks.router, prefix="", tags=["Tasks"])
 # Check paths.
 # Orig: /api/upload-and-analyze, /api/select-components
 # If I include router with prefix="", and the router decorators have "/upload-and-analyze",
