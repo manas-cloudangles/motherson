@@ -38,7 +38,7 @@ async def chat_with_page(request_data: ChatRequest):
             "ts": new_data['ts_code'],
         }
 
-        final_code = await AuditService.orchestrate_agents(code_input)
+        final_code = await AuditService.orchestrate_agents(code_input, user_message)
              
         new_html = final_code.get('html', new_data['html_code'])
         new_scss = final_code.get('css', new_data['scss_code'])
