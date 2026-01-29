@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import components, generation, chat, system, audit
+from app.api.v1.endpoints import components, generation, chat, system, audit, tasks
 
 api_router = APIRouter()
 

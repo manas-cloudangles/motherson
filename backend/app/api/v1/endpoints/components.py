@@ -78,7 +78,7 @@ async def upload_and_analyze(
             except:
                 pass
 
-@router.post("/select-components", response_model=ComponentSelectResponse)
+@router.post("/select-components", response_model=Dict[str, Any])
 async def select_components(request_data: ComponentSelectRequest):
     try:
         page_request = request_data.pageRequest or workspace_service.load_page_request()
