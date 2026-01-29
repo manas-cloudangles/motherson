@@ -11,6 +11,14 @@ export const convertAngularTemplateToHTML = (template, componentData = {}) => {
     converted = converted.replace(/\{\{([^}]+)\}\}/g, (match, expr) => {
         const trimmed = expr.trim()
 
+        // Handle method calls - show sample data instead of code
+        if (trimmed.includes('(') && trimmed.includes(')')) {
+            if (trimmed.includes('Date')) return 'Oct 24, 2023';
+            if (trimmed.includes('currency')) return '$1,234.56';
+            if (trimmed.includes('status')) return 'Active';
+            return 'Sample Value';
+        }
+
         // Try to get value from componentData (dynamic lookup)
         if (componentData[trimmed] !== undefined) {
             const value = componentData[trimmed]
@@ -35,7 +43,8 @@ export const convertAngularTemplateToHTML = (template, componentData = {}) => {
                     value = value[part]
                 } else {
                     // Can't resolve, show as interpolation
-                    return `<span class="interpolation">${trimmed}</span>`
+                    // For preview beauty, show the last part as a placeholder
+                    return parts[parts.length - 1]; // e.g. "name" from "user.name"
                 }
             }
             return String(value !== undefined ? value : '')
@@ -46,8 +55,8 @@ export const convertAngularTemplateToHTML = (template, componentData = {}) => {
             return String(new Date().getFullYear())
         }
 
-        // Default: show as interpolation placeholder
-        return `<span class="interpolation">${trimmed}</span>`
+        // Default: show as interpolation placeholder but cleaner
+        return trimmed;
     })
 
     // Handle property binding [property]="value"
@@ -73,7 +82,13 @@ export const convertAngularTemplateToHTML = (template, componentData = {}) => {
             return `class="${value}"`
         }
 
-        // For other property bindings like [type]="type" or [disabled]="disabled"
+        // FORCE ENABLE: specific fix for [disabled]
+        // If it's a disabled binding, remove it so the element appears enabled in preview
+        if (prop === 'disabled') {
+            return '';
+        }
+
+        // For other property bindings like [type]="type"
         let propValue
         const valueTrimmed = value.trim()
 
@@ -96,7 +111,7 @@ export const convertAngularTemplateToHTML = (template, componentData = {}) => {
             // If not found, try to infer from the property name
             if (propValue === undefined) {
                 // For boolean HTML attributes, default to false if not provided
-                const booleanAttributes = ['disabled', 'readonly', 'required', 'checked', 'selected', 'hidden']
+                const booleanAttributes = ['readonly', 'required', 'checked', 'selected', 'hidden']
                 if (booleanAttributes.includes(prop.toLowerCase())) {
                     propValue = false
                 }
@@ -128,13 +143,27 @@ export const convertAngularTemplateToHTML = (template, componentData = {}) => {
         return ''
     })
 
-    // Handle *ngIf
+    // Handle *ngIf - IMPROVED for Happy Path
+    // We want to hide "loading" and "empty" states, and show "data" states
     converted = converted.replace(/\*ngIf="([^"]+)"/g, (match, condition) => {
+        const cond = condition.trim().toLowerCase();
+        // Heuristics to HIDE elements (loading, no records, error)
+        if (cond.includes('loading') ||
+            (cond.includes('!') && (cond.includes('data') || cond.includes('record') || cond.includes('item'))) ||
+            cond.includes('length === 0') ||
+            cond.includes('error')) {
+            // Hide this element
+            return 'style="display: none !important;"';
+        }
+
+        // Ensure "Happy Path" elements are shown (no attribute needed)
+
         return ''
     })
 
-    // Handle *ngFor
+    // Handle *ngFor - simplify for preview
     converted = converted.replace(/\*ngFor="let\s+(\w+)\s+of\s+([^"]+)"/g, (match, item, array) => {
+        // Just remove the directive, letting the SINGLE item render as a sample
         return ''
     })
 

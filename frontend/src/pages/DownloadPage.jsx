@@ -48,32 +48,41 @@ function DownloadPage() {
 
     // Convert Angular template syntax to vanilla JS/HTML (for remaining non-component elements)
     let finalHtml = processedHtml
-      // Handle *ngFor
+      // Handle *ngFor - remove directive, show item
       .replace(/\*ngFor="let\s+(\w+)\s+of\s+([^"]+)"/g, (match, item, array) => {
         return `data-ngfor="${array}" data-item="${item}"`
       })
-      // Handle *ngIf
+      // Handle *ngIf - Hide loading/empty states for "Happy Path" review
       .replace(/\*ngIf="([^"]+)"/g, (match, condition) => {
-        return `data-ngif="${condition}"`
+        const cond = condition.trim().toLowerCase();
+        if (cond.includes('loading') ||
+          (cond.includes('!') && (cond.includes('data') || cond.includes('record') || cond.includes('item'))) ||
+          cond.includes('length === 0') ||
+          cond.includes('error')) {
+          return 'style="display: none !important;"';
+        }
+        return '';
       })
-      // Handle (click) events - remove for preview (buttons should be visible but non-functional)
+      // Handle (click) events - remove for preview
       .replace(/\(click\)="([^"]+)"/g, (match, handler) => {
-        return '' // Remove click handlers - buttons should be visible but non-interactive
+        return ''
       })
       // Handle [ngClass]
       .replace(/\[ngClass\]="([^"]+)"/g, '')
       // Handle interpolation - convert to readable format
       .replace(/\{\{([^}]+)\}\}/g, (match, expr) => {
-        // Try to evaluate simple expressions, otherwise show as text
-        try {
-          // For simple property access, show placeholder
-          return `<span class="interpolation">${expr.trim()}</span>`
-        } catch {
-          return `<span class="interpolation">${expr}</span>`
+        const trimmed = expr.trim();
+        // Mock methods
+        if (trimmed.includes('(') && trimmed.includes(')')) {
+          if (trimmed.includes('Date')) return 'Oct 24, 2023';
+          return 'Sample Value';
         }
+        return `<span class="interpolation">${trimmed}</span>`;
       })
       // Handle property binding [property]
       .replace(/\[([^\]]+)\]="([^"]+)"/g, (match, prop, value) => {
+        // Special case: remove disabled binding to show enabled state
+        if (prop === 'disabled') return '';
         return `${prop}="${value}"`
       })
 
@@ -243,7 +252,7 @@ function DownloadPage() {
     // Fetch or generate Angular component files from backend
     const generateFiles = async () => {
       setIsLoading(true)
-            try {
+      try {
         // 1. Start Generation Task (Background)
         const response = await fetch('http://localhost:5000/api/generate-page', {
           method: 'POST',
@@ -262,26 +271,26 @@ function DownloadPage() {
 
         const initData = await response.json()
         const taskId = initData.task_id
-        
+
         console.log(`Generation Task Started: ${taskId}. Polling...`)
 
         // 2. Poll for Results
         let data = null
         while (true) {
-             const statusRes = await fetch(`http://localhost:5000/api/tasks/${taskId}`)
-             if (!statusRes.ok) throw new Error('Failed to poll status')
-             
-             const taskStatus = await statusRes.json()
-             
-             if (taskStatus.status === 'completed') {
-                 data = taskStatus.result
-                 break
-             } else if (taskStatus.status === 'failed') {
-                 throw new Error(taskStatus.error || 'Generation task failed')
-             }
-             
-             // Wait 2 seconds
-             await new Promise(resolve => setTimeout(resolve, 2000))
+          const statusRes = await fetch(`http://localhost:5000/api/tasks/${taskId}`)
+          if (!statusRes.ok) throw new Error('Failed to poll status')
+
+          const taskStatus = await statusRes.json()
+
+          if (taskStatus.status === 'completed') {
+            data = taskStatus.result
+            break
+          } else if (taskStatus.status === 'failed') {
+            throw new Error(taskStatus.error || 'Generation task failed')
+          }
+
+          // Wait 2 seconds
+          await new Promise(resolve => setTimeout(resolve, 2000))
         }
 
         if (data.status !== 'success') {
