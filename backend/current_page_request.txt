@@ -1,1 +1,1 @@
-Make a page that shows table data and a button with a search bar. When I press the button, after putting something in the search bar. The searched result will be shown
+a page showing table, search bar and search button
