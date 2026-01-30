@@ -21,3 +21,10 @@ Thumbs.db
 # Node
 node_modules/
 frontend/node_modules/
+COMPONENT_METADATA_README.md
+
+backend/current_page_context.json
+
+backend/current_page_request.txt
+
+component_metadata.json
