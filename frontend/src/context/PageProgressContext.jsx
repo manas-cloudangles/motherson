@@ -105,11 +105,12 @@ export const PageProgressProvider = ({ children }) => {
       components: appData.components,
       selectedComponents: appData.selectedComponents,
       componentReasoning: appData.componentReasoning || {},
-      generatedFiles: appData.generatedFiles
+      generatedFiles: appData.generatedFiles,
+      projectPath: appData.projectPath
       // Don't save folder to sessionStorage (File objects aren't serializable)
     }
     sessionStorage.setItem('appData', JSON.stringify(dataToSave))
-  }, [appData.devRequest, appData.components, appData.selectedComponents, appData.componentReasoning, appData.generatedFiles])
+  }, [appData.devRequest, appData.components, appData.selectedComponents, appData.componentReasoning, appData.generatedFiles, appData.projectPath])
 
   // Save chat history to sessionStorage
   useEffect(() => {

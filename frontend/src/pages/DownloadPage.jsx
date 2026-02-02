@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { usePageProgress } from '../context/PageProgressContext'
 import NoInputMessage from '../components/NoInputMessage'
 import './DownloadPage.css'
-import { convertAngularTemplateToHTML, processReusableComponents } from '../utils/angularParser'
+import { processReusableComponents } from '../utils/angularParser'
 
 function DownloadPage() {
   const { markPageComplete, completedPages, appData, updateAppData } = usePageProgress()
@@ -12,10 +12,14 @@ function DownloadPage() {
   const [previewContent, setPreviewContent] = useState('')
   const [activeTab, setActiveTab] = useState('html')
   const [isLoading, setIsLoading] = useState(false)
-  const componentName = appData.generatedFiles?.component_name?.replace('Component', '').toLowerCase() || 'my-component'
+  // State for integration snippets (must be before any early returns)
+  const [snippets, setSnippets] = useState(null)
+  const [snippetsError, setSnippetsError] = useState(false)
+  // For API: Use raw component name (e.g., "User Profile") for correct PascalCase
+  const rawComponentName = appData.generatedFiles?.component_name?.replace('Component', '') || 'MyComponent'
+  // For file naming: lowercase kebab-case
+  const componentNameForFiles = rawComponentName.toLowerCase().replace(/\s+/g, '-') || 'my-component'
 
-
-  // Check if there's input from previous steps
   // Check if there's input from previous steps
   const hasInputFromPreviousSteps = completedPages.chat && completedPages.elements
 
@@ -370,6 +374,30 @@ function DownloadPage() {
     }
   }, [htmlContent, scssContent, tsContent])
 
+  // Fetch integration snippets when component name changes
+  useEffect(() => {
+    if (rawComponentName) {
+      setSnippetsError(false)
+      fetch('http://localhost:5000/api/integration/generate-snippets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ component_name: rawComponentName })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'success') {
+            setSnippets(data.snippets)
+          } else {
+            setSnippetsError(true)
+          }
+        })
+        .catch(err => {
+          console.error("Failed to load integration snippets", err)
+          setSnippetsError(true)
+        })
+    }
+  }, [rawComponentName])
+
   const downloadFile = (content, filename, mimeType) => {
     if (!content) return
 
@@ -390,15 +418,15 @@ function DownloadPage() {
   }
 
   const downloadHTML = () => {
-    downloadFile(htmlContent, `${componentName}.component.html`, 'text/html')
+    downloadFile(htmlContent, `${componentNameForFiles}.component.html`, 'text/html')
   }
 
   const downloadSCSS = () => {
-    downloadFile(scssContent, `${componentName}.component.scss`, 'text/scss')
+    downloadFile(scssContent, `${componentNameForFiles}.component.scss`, 'text/scss')
   }
 
   const downloadTS = () => {
-    downloadFile(tsContent, `${componentName}.component.ts`, 'text/typescript')
+    downloadFile(tsContent, `${componentNameForFiles}.component.ts`, 'text/typescript')
   }
 
   const downloadAll = () => {
@@ -432,6 +460,8 @@ function DownloadPage() {
       </div>
     )
   }
+
+
 
   return (
     <div className="download-page">
@@ -469,7 +499,7 @@ function DownloadPage() {
                     <polyline points="17 21 17 13 7 13 7 21"></polyline>
                     <polyline points="7 3 7 8 15 8"></polyline>
                   </svg>
-                  Save
+                  Update Preview
                 </button>
                 <button className="download-all-btn" onClick={downloadAll}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -477,7 +507,7 @@ function DownloadPage() {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Download All
+                  Download Info
                 </button>
               </div>
             </div>
@@ -501,6 +531,12 @@ function DownloadPage() {
                 onClick={() => setActiveTab('ts')}
               >
                 TypeScript
+              </button>
+              <button
+                className={`editor-tab ${activeTab === 'integration' ? 'active' : ''}`}
+                onClick={() => setActiveTab('integration')}
+              >
+                Integration 📋
               </button>
             </div>
 
@@ -532,6 +568,41 @@ function DownloadPage() {
                   placeholder={tsContent ? "Enter TypeScript code..." : "Waiting for TypeScript code from backend..."}
                   spellCheck={false}
                 />
+              )}
+              {activeTab === 'integration' && (
+                <div className="integration-view" style={{ padding: '20px', overflow: 'auto', height: '100%' }}>
+                  <h3>1. Setup Routing (app-routing.module.ts)</h3>
+                  <div style={{ background: '#1e1e1e', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
+                    <p style={{ color: '#888', fontSize: '0.9em', marginBottom: '8px', fontFamily: 'monospace' }}>
+                      // 1. Add this import to the top of your file
+                    </p>
+                    <code style={{ display: 'block', marginBottom: '15px', fontFamily: 'monospace', color: snippetsError ? '#ff6b6b' : '#fff' }}>
+                      {snippetsError ? 'Error loading snippets' : (snippets?.routing?.import || 'Loading...')}
+                    </code>
+                    <p style={{ color: '#888', fontSize: '0.9em', marginBottom: '8px', fontFamily: 'monospace' }}>
+                      // 2. Add this object to your 'routes' array
+                    </p>
+                    <pre style={{ margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: snippetsError ? '#ff6b6b' : '#fff' }}>
+                      {snippetsError ? 'Error loading snippets' : (snippets?.routing?.route || 'Loading...')}
+                    </pre>
+                  </div>
+
+                  <h3>2. Setup Sidebar (layout-sidebar.module.ts)</h3>
+                  <div style={{ background: '#1e1e1e', padding: '15px', borderRadius: '4px' }}>
+                    <p style={{ color: '#888', fontSize: '0.9em', marginBottom: '8px', fontFamily: 'monospace' }}>
+                      // 1. Add this import
+                    </p>
+                    <code style={{ display: 'block', marginBottom: '15px', fontFamily: 'monospace', color: snippetsError ? '#ff6b6b' : '#fff' }}>
+                      {snippetsError ? 'Error loading snippets' : (snippets?.sidebar?.import || 'Loading...')}
+                    </code>
+                    <p style={{ color: '#888', fontSize: '0.9em', marginBottom: '8px', fontFamily: 'monospace' }}>
+                      // 2. Add this to the 'declarations' array
+                    </p>
+                    <code style={{ display: 'block', fontFamily: 'monospace', color: snippetsError ? '#ff6b6b' : '#fff' }}>
+                      {snippetsError ? 'Error loading snippets' : (snippets?.sidebar?.declaration || 'Loading...')}
+                    </code>
+                  </div>
+                </div>
               )}
             </div>
           </div>

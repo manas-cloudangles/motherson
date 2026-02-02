@@ -1,0 +1,10 @@
+{
+    "routing": {
+        "importTemplate": "import { {{ClassName}} } from './masters/enterprise/{{kebabName}}/{{kebabName}}.component';",
+        "routeTemplate": "{\n    path: 'admin/master/{{kebabName}}',\n    component: {{ClassName}},\n    canActivate: [AuthGuard],\n},"
+    },
+    "sidebar": {
+        "importTemplate": "import { {{ClassName}} } from 'src/app/masters/enterprise/{{kebabName}}/{{kebabName}}.component';",
+        "declarationTemplate": "{{ClassName}}"
+    }
+}

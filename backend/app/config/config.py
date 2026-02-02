@@ -99,7 +99,7 @@ LOGS_DIR = SRC_DIR / "logs"
 RECORD_DIR = SRC_DIR / "record"
 
 # Output files
-COMPONENT_METADATA_FILE = BASE_DIR / "component_metadata.json"
+COMPONENT_METADATA_FILE = Path(__file__).parent / "component_metadata.json"
 COMPONENT_README_FILE = BASE_DIR / "COMPONENT_METADATA_README.md"
 
 # LLM Configuration

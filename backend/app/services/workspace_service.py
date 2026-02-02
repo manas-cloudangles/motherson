@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, Optional, Any
 from datetime import datetime, timezone
 
-CURRENT_PAGE_CONTEXT_FILE = Path("current_page_context.json")
+CURRENT_PAGE_CONTEXT_FILE = Path(__file__).parent.parent / "config" / "current_page_context.json"
 PAGE_REQUEST_FILE = Path("current_page_request.txt")
 
 class WorkspaceService:
