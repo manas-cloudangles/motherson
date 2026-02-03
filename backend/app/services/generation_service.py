@@ -16,6 +16,17 @@ class GenerationService:
             components_doc += f"Component: {comp['name']}\n"
             components_doc += f"Description: {comp['description']}\n"
             components_doc += f"HTML Tag/ID to use: {comp['id_name']}\n"
+            # Include available inputs and outputs for proper binding
+            inputs = comp.get('inputs', [])
+            outputs = comp.get('outputs', [])
+            if inputs:
+                components_doc += f"Available Inputs (use with [inputName]): {', '.join(inputs)}\n"
+            else:
+                components_doc += "Available Inputs: NONE - Do NOT use property binding [] on this component\n"
+            if outputs:
+                components_doc += f"Available Outputs (use with (outputName)): {', '.join(outputs)}\n"
+            else:
+                components_doc += "Available Outputs: NONE - Do NOT use event binding () on this component\n"
             if comp.get('reasoning'):
                 components_doc += f"Reasoning/Usage Note: {comp['reasoning']}\n"
             components_doc += "---\n\n"

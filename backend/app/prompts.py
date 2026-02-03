@@ -58,6 +58,35 @@ class Generation:
                 IF the user doesn't want to use the component, but the user request requires you to use it, generate the component without using that id, but generating it normally.
                 Example: If the user doesn't want to use app-header component, but create a page with header, use <header> tag and create a new one instead of using <app-header></app-header> component.
 
+                UPLOADED COMPONENT INTERFACE RULES (CRITICAL - TREAT AS BLACK BOX):
+                
+                CORE PRINCIPLE: Uploaded components are BLACK BOXES. You only know their PUBLIC INTERFACE (the @Input/@Output names listed in the documentation above). You do NOT know:
+                - Their internal type definitions (interfaces, classes, enums)
+                - Their internal implementation details
+                - Their expected data shapes or structures
+                - Their event payload types
+                
+                BINDING RULES:
+                1. Only use bindings that are EXPLICITLY documented in "Available Inputs" and "Available Outputs" above
+                2. DO NOT invent, assume, or guess any binding names that are not listed
+                3. If a component has no inputs/outputs listed, you CANNOT bind to it
+                4. Match binding names EXACTLY as documented (case-sensitive)
+                
+                TYPING RULES (CRITICAL - PREVENTS TYPESCRIPT ERRORS):
+                Since you don't know the component's internal types, you MUST use flexible typing:
+                1. ALL event handlers for component @Output() events: use 'any' type for the parameter
+                   - Pattern: handlerName(event: any): void { ... }
+                2. ALL data passed to component @Input() properties: use 'any' or generic object types
+                   - Pattern: someData: any = { ... };
+                3. NEVER use specific types like 'Event', 'MouseEvent', or any custom type names
+                4. NEVER assume what properties exist on the event payload - access them safely or cast as needed inside the handler
+                
+                WHY THIS MATTERS:
+                - Uploaded components may have custom types like 'LoginResult', 'UserData', 'TableConfig', etc.
+                - These types are INTERNAL to the component and not available to your generated code
+                - Using any specific type will cause TypeScript compilation errors
+                - Using 'any' allows the code to compile and work with whatever the component emits
+
                 FALLBACK INSTRUCTION (CRITICAL):
                 IF the user request mentions a standard UI element (e.g., "header", "footer", "button") BUT you do not see a matching component in the "Available Angular Components" list above:
                 - You MUST implement that element from scratch using standard HTML tags (e.g., <header>, <footer>, <button>).
@@ -76,6 +105,11 @@ class Generation:
                 - Use @Component decorator with selector, templateUrl, styleUrls
                 - Export the component class
                 - Include constructor and ngOnInit lifecycle hook
+                - TYPING PRINCIPLE FOR EXTERNAL COMPONENTS:
+                  * When interacting with uploaded/external components, always use 'any' or loosely-typed variables
+                  * This applies to ALL interactions: event handlers, data bindings, property assignments
+                  * You never have access to external component's internal type definitions
+                  * This ensures code compiles regardless of what types the external component uses internally
 
                 MOCK DATA REQUIREMENTS:
                 - Your component MUST have realistic mock data to show in the preview.
@@ -100,10 +134,32 @@ class Generation:
                 "ts_code": "complete TypeScript code as a string"
                 }}
 
-                NAMING CONVENTIONS:
-                - component_name: PascalCase ending with "Component" (e.g., "WelcomePageComponent")
-                - path_name: kebab-case (e.g., "welcome-page")
-                - selector: "app-" prefix + path_name (e.g., "app-welcome-page")
+                NAMING CONVENTIONS (CRITICAL - MUST FOLLOW EXACTLY):
+                - component_name: PascalCase ending with "Component" (e.g., "WelcomePageComponent", "LoginPageComponent")
+                - path_name: MUST be kebab-case with hyphens (e.g., "welcome-page", "login-page", "user-profile")
+                - selector: "app-" prefix + path_name (e.g., "app-welcome-page", "app-login-page")
+                
+                FILE AND IMPORT CONSISTENCY RULE (CRITICAL):
+                The path_name you provide controls EVERYTHING and must be IDENTICAL across:
+                1. FOLDER NAME: The component folder will be named exactly {path_name}/
+                2. FILE NAMES inside the folder:
+                   * {path_name}.component.ts
+                   * {path_name}.component.html
+                   * {path_name}.component.scss
+                3. IMPORTS inside ts_code MUST use the EXACT SAME {path_name}:
+                   * templateUrl: './{path_name}.component.html'
+                   * styleUrls: ['./{path_name}.component.scss']
+                
+                EXAMPLE - If path_name is "login-page":
+                ✅ CORRECT:
+                   - Folder: login-page/
+                   - Files: login-page.component.ts, login-page.component.html, login-page.component.scss
+                   - In TS: templateUrl: './login-page.component.html', styleUrls: ['./login-page.component.scss']
+                
+                ❌ WRONG (MISMATCH - WILL CAUSE IMPORT ERRORS):
+                   - Folder: loginpage/ (missing hyphen)
+                   - But TS imports: './login-page.component.html' (has hyphen)
+                   - This BREAKS because folder name doesn't match import path!
 
                 COMPLETE EXAMPLE OUTPUT (this is how your ENTIRE response should look):
 
@@ -139,7 +195,9 @@ class Metadata:
                             "name": "component class name",
                             "description": "detailed description of what this component does and where it should be used",
                             "import_path": "the exact import path that should be used to import this component in other Angular modules or components",
-                            "id_name": "the name of the unique identifier input property for this component that will be used in other files, or null if none exists"
+                            "id_name": "the name of the unique identifier input property for this component that will be used in other files, or null if none exists",
+                            "inputs": ["list of @Input() property names available on this component"],
+                            "outputs": ["list of @Output() event names available on this component"]
                         }
 
                         Rules:
@@ -151,6 +209,8 @@ class Metadata:
                         - Any special features or behaviors of THIS COMPONENT
                         3. The "import_path" should be the relative path from the app root to THIS COMPONENT's file (e.g., "app/common/components/app-button/app-button.component")
                         4. The "id_name" is the component selector (e.g., "app-button" from selector: 'app-button') or the name of a unique identifier input property, or null if none exists. This is what will be used in HTML templates to reference this component.
+                        5. The "inputs" MUST be an array of all @Input() decorated property names found in the TypeScript file. Extract the EXACT property name (e.g., if you see @Input() paramData: any;, add "paramData" to the array). If no @Input() decorators exist, return an empty array [].
+                        6. The "outputs" MUST be an array of all @Output() decorated property names found in the TypeScript file. Extract the EXACT property name (e.g., if you see @Output() returnLogin = new EventEmitter();, add "returnLogin" to the array). If no @Output() decorators exist, return an empty array [].
 
                         IMPORTANT: If you see multiple components or a module declaration in the files, extract metadata ONLY for the component that matches the file names provided. Ignore any module declarations or other components.
 
