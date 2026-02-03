@@ -30,7 +30,7 @@ function ChatPage() {
     if (!folder || folder.length === 0) return null
 
     const tree = {}
-    
+
     folder.forEach((file) => {
       const path = file.webkitRelativePath || file.name
       const parts = path.split('/')
@@ -55,18 +55,35 @@ function ChatPage() {
   }, [folder])
 
   // Render folder tree recursively with text-based tree format
+  // Limit rendering to prevent lag with large file counts
+  const MAX_VISIBLE_ITEMS = 100
+  let renderedCount = 0
+
   const renderFolderTree = (node, level = 0, path = '', prefix = '', isLast = true) => {
     const items = []
+
+    // Check if we've already hit the limit
+    if (renderedCount >= MAX_VISIBLE_ITEMS) {
+      return items
+    }
+
     const dirKeys = Object.keys(node).filter(key => key !== '_files').sort()
     const fileCount = node._files ? node._files.length : 0
-    const totalItems = dirKeys.length + fileCount
-
-    let itemIndex = 0
 
     // Render directories first
-    dirKeys.forEach((dirName, dirIndex) => {
+    for (const dirName of dirKeys) {
+      if (renderedCount >= MAX_VISIBLE_ITEMS) {
+        items.push(
+          <div key="ellipsis-dir" className="folder-tree-line folder-tree-ellipsis">
+            {prefix}└─ ... and more
+          </div>
+        )
+        renderedCount++ // Prevent duplicate ellipsis
+        return items
+      }
+
       const newPath = path ? `${path}/${dirName}` : dirName
-      const isLastDir = dirIndex === dirKeys.length - 1 && fileCount === 0
+      const isLastDir = dirKeys.indexOf(dirName) === dirKeys.length - 1 && fileCount === 0
       const currentPrefix = isLastDir ? '└─' : '├─'
       const nextPrefix = isLastDir ? prefix + '   ' : prefix + '│  '
 
@@ -75,26 +92,44 @@ function ChatPage() {
           {prefix}{currentPrefix} {dirName}/
         </div>
       )
-      
+      renderedCount++
+
       items.push(...renderFolderTree(node[dirName], level + 1, newPath, nextPrefix, isLastDir))
-    })
+    }
 
     // Render files
     if (node._files) {
-      node._files
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach((fileItem, fileIndex) => {
-          const isLastFile = fileIndex === node._files.length - 1
-          const currentPrefix = isLastFile ? '└─' : '├─'
+      const sortedFiles = node._files.sort((a, b) => a.name.localeCompare(b.name))
+      for (let i = 0; i < sortedFiles.length; i++) {
+        if (renderedCount >= MAX_VISIBLE_ITEMS) {
           items.push(
-            <div key={`${path}/${fileItem.name}`} className="folder-tree-line">
-              {prefix}{currentPrefix} {fileItem.name}
+            <div key="ellipsis-file" className="folder-tree-line folder-tree-ellipsis">
+              {prefix}└─ ... and {sortedFiles.length - i} more files
             </div>
           )
-        })
+          renderedCount++ // Prevent duplicate ellipsis
+          break
+        }
+
+        const fileItem = sortedFiles[i]
+        const isLastFile = i === sortedFiles.length - 1
+        const currentPrefix = isLastFile ? '└─' : '├─'
+        items.push(
+          <div key={`${path}/${fileItem.name}`} className="folder-tree-line">
+            {prefix}{currentPrefix} {fileItem.name}
+          </div>
+        )
+        renderedCount++
+      }
     }
 
     return items
+  }
+
+  // Wrapper to reset count before each render
+  const renderFolderTreeWrapper = () => {
+    renderedCount = 0
+    return renderFolderTree(folderStructure)
   }
 
   const handleFolderChange = (e) => {
@@ -140,14 +175,14 @@ function ChatPage() {
       }
 
       // Store components in context for ElementsPage
-      updateAppData({ 
+      updateAppData({
         components: data.components || [],
         devRequest: devRequest.trim()
       })
 
       // Mark chat as complete when submission is successful
       markPageComplete('chat')
-      
+
       // Navigate to elements page after processing is complete
       navigate('/elements')
     } catch (error) {
@@ -167,7 +202,7 @@ function ChatPage() {
             <p>Analyzing components... This may take a moment.</p>
           </div>
         )}
-        <div 
+        <div
           className={`folder-structure-container ${!folderStructure ? 'folder-upload-area' : ''}`}
           onClick={() => !folderStructure && !isLoading && fileInputRef.current?.click()}
         >
@@ -175,7 +210,7 @@ function ChatPage() {
             <>
               <h3 className="folder-structure-title">Folder Structure</h3>
               <div className="folder-structure-tree">
-                {renderFolderTree(folderStructure)}
+                {renderFolderTreeWrapper()}
               </div>
             </>
           ) : (

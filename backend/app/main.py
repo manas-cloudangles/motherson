@@ -4,6 +4,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 from app.config.config import LOG_LEVEL
 
+# Increase python-multipart upload limits (default is 1000)
+try:
+    import python_multipart
+    python_multipart.multipart.MultipartParser.max_files = 500000
+    python_multipart.multipart.MultipartParser.max_fields = 500000
+except ImportError:
+    try:
+        import multipart
+        multipart.multipart.MultipartParser.max_files = 500000
+        multipart.multipart.MultipartParser.max_fields = 500000
+    except ImportError:
+        pass  # If neither is found, we might be in an environment where it's not installed yet
+    except AttributeError:
+        pass # In case the internal structure is different in the installed version
+except AttributeError:
+    pass
+
 app = FastAPI(
     title="Angular Page Generator API",
     description="API for generating Angular components with LLM assistance",
