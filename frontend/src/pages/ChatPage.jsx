@@ -6,8 +6,11 @@ import './ChatPage.css'
 function ChatPage() {
   const navigate = useNavigate()
   const { markPageComplete, updateAppData, appData } = usePageProgress()
-  const [folder, setFolder] = useState(null)
-  const [devRequest, setDevRequest] = useState(appData.devRequest || '')
+  const folderRef = useRef(null) // Use ref for heavy file data
+  const [fileCount, setFileCount] = useState(0) // Track count for UI
+  const [folderStructure, setFolderStructure] = useState(null) // Track tree for UI
+  // Using uncontrolled textarea to avoid re-renders on every keystroke
+  const initialDevRequest = appData.devRequest || ''
   const [isLoading, setIsLoading] = useState(false)
   const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
@@ -23,15 +26,16 @@ function ChatPage() {
 
   useEffect(() => {
     adjustTextareaHeight()
-  }, [devRequest])
+  }, [])
 
   // Build folder tree structure from files
-  const folderStructure = useMemo(() => {
-    if (!folder || folder.length === 0) return null
+  // Helper to build folder tree structure from files
+  const buildFolderTree = (files) => {
+    if (!files || files.length === 0) return null
 
     const tree = {}
 
-    folder.forEach((file) => {
+    files.forEach((file) => {
       const path = file.webkitRelativePath || file.name
       const parts = path.split('/')
       let current = tree
@@ -52,7 +56,7 @@ function ChatPage() {
     })
 
     return tree
-  }, [folder])
+  }
 
   // Render folder tree recursively with text-based tree format
   // Limit rendering to prevent lag with large file counts
@@ -134,28 +138,32 @@ function ChatPage() {
 
   const handleFolderChange = (e) => {
     const files = Array.from(e.target.files)
-    setFolder(files)
+    folderRef.current = files
+    setFileCount(files.length)
+    setFolderStructure(buildFolderTree(files))
     updateAppData({ folder: files })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!folder || folder.length === 0 || !devRequest.trim() || isLoading) return
+    const devRequestValue = textareaRef.current?.value?.trim() || ''
+    const currentFolder = folderRef.current
+    if (!currentFolder || currentFolder.length === 0 || !devRequestValue || isLoading) return
 
     setIsLoading(true)
-    updateAppData({ devRequest: devRequest.trim() })
+    updateAppData({ devRequest: devRequestValue })
 
     try {
       // Prepare FormData with files and page request
       const formData = new FormData()
-      folder.forEach((file) => {
+      currentFolder.forEach((file) => {
         // Create a new File object with webkitRelativePath in the name if available
         // This preserves the directory structure
         const relativePath = file.webkitRelativePath || file.name
         const fileWithPath = new File([file], relativePath, { type: file.type })
         formData.append('files', fileWithPath)
       })
-      formData.append('pageRequest', devRequest.trim())
+      formData.append('pageRequest', devRequestValue)
 
       // Call backend API
       const response = await fetch('http://localhost:5000/api/upload-and-analyze', {
@@ -243,15 +251,11 @@ function ChatPage() {
               className="folder-button"
               disabled={isLoading}
             >
-              {folder && folder.length > 0 ? `${folder.length} file(s) selected` : 'Select Folder'}
+              {fileCount > 0 ? `${fileCount} file(s) selected` : 'Select Folder'}
             </button>
             <textarea
               ref={textareaRef}
-              value={devRequest}
-              onChange={(e) => {
-                setDevRequest(e.target.value)
-                adjustTextareaHeight()
-              }}
+              defaultValue={initialDevRequest}
               onInput={adjustTextareaHeight}
               placeholder="Enter your development request..."
               className="chat-input chat-textarea"
@@ -261,7 +265,7 @@ function ChatPage() {
             <button
               type="submit"
               className="send-button"
-              disabled={!folder || folder.length === 0 || !devRequest.trim() || isLoading}
+              disabled={!fileCount || fileCount === 0 || isLoading}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
