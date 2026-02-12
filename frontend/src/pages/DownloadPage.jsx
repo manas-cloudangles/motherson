@@ -15,6 +15,12 @@ function DownloadPage() {
   // State for integration snippets (must be before any early returns)
   const [snippets, setSnippets] = useState(null)
   const [snippetsError, setSnippetsError] = useState(false)
+  // State for backend integration code
+  const [serviceCode, setServiceCode] = useState('')
+  const [controllerCode, setControllerCode] = useState('')
+  const [routesConfig, setRoutesConfig] = useState('')
+  const [isLoadingIntegration, setIsLoadingIntegration] = useState(false)
+  const [integrationError, setIntegrationError] = useState('')
   // For API: Use raw component name (e.g., "User Profile") for correct PascalCase
   const rawComponentName = appData.generatedFiles?.component_name?.replace('Component', '') || 'MyComponent'
   // For file naming: lowercase kebab-case
@@ -398,6 +404,85 @@ function DownloadPage() {
     }
   }, [rawComponentName])
 
+  // Fetch backend integration code (service + controller) when files are ready
+  useEffect(() => {
+    if (htmlContent && tsContent && rawComponentName && !isLoadingIntegration && !serviceCode) {
+      setIsLoadingIntegration(true)
+      setIntegrationError('')
+      
+      console.log('Starting backend integration generation for:', rawComponentName)
+      
+      fetch('http://localhost:5000/api/integration/generate-integration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          component_name: rawComponentName,
+          html_code: htmlContent,  // ✅ Send actual HTML code
+          ts_code: tsContent,      // ✅ Send actual TS code
+          use_workspace_files: false  // ✅ Don't rely on workspace
+        })
+      })
+        .then(async res => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}))
+            throw new Error(errorData.detail || `Server error: ${res.status}`)
+          }
+          return res.json()
+        })
+        .then(async (data) => {
+          if (data.status === 'processing') {
+            // Poll for results
+            const taskId = data.task_id
+            console.log('Backend integration generation started:', taskId)
+            
+            let pollCount = 0
+            const maxPolls = 30 // Max 60 seconds (30 * 2s)
+            
+            while (pollCount < maxPolls) {
+              const statusRes = await fetch(`http://localhost:5000/api/tasks/${taskId}`)
+              const taskStatus = await statusRes.json()
+              
+              if (taskStatus.status === 'completed') {
+                const result = taskStatus.result
+                setServiceCode(result.service?.service_code || '')
+                setControllerCode(result.controller?.controller_code || '')
+                setRoutesConfig(result.routes || '')
+                console.log('Backend integration generated successfully')
+                setIsLoadingIntegration(false)
+                return
+              } else if (taskStatus.status === 'failed') {
+                setIntegrationError(taskStatus.error || 'Failed to generate backend integration')
+                console.error('Backend integration generation failed:', taskStatus.error)
+                setIsLoadingIntegration(false)
+                return
+              }
+              
+              pollCount++
+              // Wait 2 seconds before polling again
+              await new Promise(resolve => setTimeout(resolve, 2000))
+            }
+            
+            // Timeout
+            setIntegrationError('Backend integration generation timed out')
+            setIsLoadingIntegration(false)
+          } else if (data.status === 'success') {
+            setServiceCode(data.service?.service_code || '')
+            setControllerCode(data.controller?.controller_code || '')
+            setRoutesConfig(data.routes || '')
+            setIsLoadingIntegration(false)
+          } else {
+            setIntegrationError(data.message || 'Failed to generate backend integration')
+            setIsLoadingIntegration(false)
+          }
+        })
+        .catch(err => {
+          console.error("Failed to generate backend integration", err)
+          setIntegrationError(err.message || 'Unknown error occurred')
+          setIsLoadingIntegration(false)
+        })
+    }
+  }, [htmlContent, tsContent, rawComponentName, isLoadingIntegration, serviceCode])
+
   const downloadFile = (content, filename, mimeType) => {
     if (!content) return
 
@@ -429,10 +514,34 @@ function DownloadPage() {
     downloadFile(tsContent, `${componentNameForFiles}.component.ts`, 'text/typescript')
   }
 
+  const downloadService = () => {
+    if (serviceCode) {
+      downloadFile(serviceCode, `${componentNameForFiles}.service.ts`, 'text/typescript')
+    }
+  }
+
+  const downloadController = () => {
+    if (controllerCode) {
+      // Extract controller name from code or use component name
+      const controllerMatch = controllerCode.match(/class\s+(\w+Controller)/)
+      const controllerName = controllerMatch ? controllerMatch[1] : `${rawComponentName.replace(/\s+/g, '')}Controller`
+      downloadFile(controllerCode, `${controllerName}.php`, 'text/plain')
+    }
+  }
+
+  const downloadRoutes = () => {
+    if (routesConfig) {
+      downloadFile(routesConfig, `${componentNameForFiles}-routes.php`, 'text/plain')
+    }
+  }
+
   const downloadAll = () => {
     downloadHTML()
     setTimeout(() => downloadSCSS(), 200)
     setTimeout(() => downloadTS(), 400)
+    if (serviceCode) setTimeout(() => downloadService(), 600)
+    if (controllerCode) setTimeout(() => downloadController(), 800)
+    if (routesConfig) setTimeout(() => downloadRoutes(), 1000)
   }
 
 
@@ -493,6 +602,16 @@ function DownloadPage() {
             <div className="editor-header">
               <h2>Code Editor</h2>
               <div className="editor-actions">
+                {isLoadingIntegration && (
+                  <span style={{ marginRight: '10px', color: '#4CAF50', fontSize: '0.9em' }}>
+                    ⚡ Generating backend...
+                  </span>
+                )}
+                {serviceCode && !isLoadingIntegration && (
+                  <span style={{ marginRight: '10px', color: '#4CAF50', fontSize: '0.9em' }}>
+                    ✅ Backend ready
+                  </span>
+                )}
                 <button className="save-btn" onClick={handleSave}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -501,13 +620,17 @@ function DownloadPage() {
                   </svg>
                   Update Preview
                 </button>
-                <button className="download-all-btn" onClick={downloadAll}>
+                <button 
+                  className="download-all-btn" 
+                  onClick={downloadAll}
+                  title={`Download ${serviceCode ? '6' : '3'} files: HTML, SCSS, TS${serviceCode ? ', Service, Controller, Routes' : ''}`}
+                >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Download Info
+                  Download All {serviceCode ? '(6)' : '(3)'}
                 </button>
               </div>
             </div>
@@ -531,6 +654,27 @@ function DownloadPage() {
                 onClick={() => setActiveTab('ts')}
               >
                 TypeScript
+              </button>
+              <button
+                className={`editor-tab ${activeTab === 'service' ? 'active' : ''}`}
+                onClick={() => setActiveTab('service')}
+                title="Angular Service (HTTP calls)"
+              >
+                Service.ts 🔌
+              </button>
+              <button
+                className={`editor-tab ${activeTab === 'controller' ? 'active' : ''}`}
+                onClick={() => setActiveTab('controller')}
+                title="PHP Backend Controller"
+              >
+                Controller.php 🐘
+              </button>
+              <button
+                className={`editor-tab ${activeTab === 'routes' ? 'active' : ''}`}
+                onClick={() => setActiveTab('routes')}
+                title="PHP Routes Configuration"
+              >
+                Routes 🛣️
               </button>
               <button
                 className={`editor-tab ${activeTab === 'integration' ? 'active' : ''}`}
@@ -568,6 +712,84 @@ function DownloadPage() {
                   placeholder={tsContent ? "Enter TypeScript code..." : "Waiting for TypeScript code from backend..."}
                   spellCheck={false}
                 />
+              )}
+              {activeTab === 'service' && (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {isLoadingIntegration ? (
+                    <div style={{ padding: '20px', textAlign: 'center' }}>
+                      <p>🔄 Generating Angular service...</p>
+                    </div>
+                  ) : integrationError ? (
+                    <div style={{ padding: '20px', color: '#ff6b6b' }}>
+                      <p>❌ Error: {integrationError}</p>
+                    </div>
+                  ) : serviceCode ? (
+                    <textarea
+                      className="code-editor"
+                      value={serviceCode}
+                      onChange={(e) => setServiceCode(e.target.value)}
+                      placeholder="Angular Service code..."
+                      spellCheck={false}
+                      style={{ flex: 1 }}
+                    />
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+                      <p>⏳ Service will be generated after component is created...</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {activeTab === 'controller' && (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {isLoadingIntegration ? (
+                    <div style={{ padding: '20px', textAlign: 'center' }}>
+                      <p>🔄 Generating PHP controller...</p>
+                    </div>
+                  ) : integrationError ? (
+                    <div style={{ padding: '20px', color: '#ff6b6b' }}>
+                      <p>❌ Error: {integrationError}</p>
+                    </div>
+                  ) : controllerCode ? (
+                    <textarea
+                      className="code-editor"
+                      value={controllerCode}
+                      onChange={(e) => setControllerCode(e.target.value)}
+                      placeholder="PHP Controller code..."
+                      spellCheck={false}
+                      style={{ flex: 1 }}
+                    />
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+                      <p>⏳ Controller will be generated after component is created...</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {activeTab === 'routes' && (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  {isLoadingIntegration ? (
+                    <div style={{ padding: '20px', textAlign: 'center' }}>
+                      <p>🔄 Generating routes configuration...</p>
+                    </div>
+                  ) : integrationError ? (
+                    <div style={{ padding: '20px', color: '#ff6b6b' }}>
+                      <p>❌ Error: {integrationError}</p>
+                    </div>
+                  ) : routesConfig ? (
+                    <textarea
+                      className="code-editor"
+                      value={routesConfig}
+                      onChange={(e) => setRoutesConfig(e.target.value)}
+                      placeholder="PHP Routes configuration..."
+                      spellCheck={false}
+                      style={{ flex: 1 }}
+                    />
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+                      <p>⏳ Routes will be generated after component is created...</p>
+                    </div>
+                  )}
+                </div>
               )}
               {activeTab === 'integration' && (
                 <div className="integration-view" style={{ padding: '20px', overflow: 'auto', height: '100%' }}>

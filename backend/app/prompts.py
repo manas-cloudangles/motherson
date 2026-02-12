@@ -1,5 +1,4 @@
 import json
-from typing import Dict
 
 class Chat:
     system_prompt = """You are an expert Angular developer.
@@ -111,6 +110,86 @@ class Generation:
                   * You never have access to external component's internal type definitions
                   * This ensures code compiles regardless of what types the external component uses internally
 
+                HTTP REQUESTS AND DATA HANDLING (CRITICAL):
+                - For components that require backend data (dropdowns, forms, tables, etc.), include HTTP calls
+                - Import HttpClient from '@angular/common/http'
+                - Inject HttpClient in constructor: constructor(private http: HttpClient) {{ }}
+                - Use HttpClient methods for data operations:
+                  * GET requests: this.http.get<any>('/api/endpoint').subscribe(data => {{ ... }})
+                  * POST requests: this.http.post<any>('/api/endpoint', payload).subscribe(response => {{ ... }})
+                - Call HTTP GET methods in ngOnInit() for data that loads on component initialization
+                - Create handler methods for form submissions that use HTTP POST
+                - For dropdowns/select elements, fetch options via HTTP GET when component loads
+                - Always handle HTTP errors with proper error callbacks
+                - Use 'any' type for HTTP responses to maintain flexibility
+                
+                EXAMPLE - Component with HTTP calls:
+                ```typescript
+                import {{ Component, OnInit }} from '@angular/core';
+                import {{ HttpClient }} from '@angular/common/http';
+
+                @Component({{
+                  selector: 'app-user-list',
+                  templateUrl: './user-list.component.html',
+                  styleUrls: ['./user-list.component.scss']
+                }})
+                export class UserListComponent implements OnInit {{
+                  users: any[] = [];
+                  statusOptions: any[] = [];
+
+                  constructor(private http: HttpClient) {{ }}
+
+                  ngOnInit(): void {{
+                    // Load data on component init
+                    this.loadUsers();
+                    this.loadStatusOptions();
+                  }}
+
+                  loadUsers(): void {{
+                    this.http.get<any>('/api/users/list').subscribe(
+                      data => {{
+                        this.users = data;
+                      }},
+                      error => {{
+                        console.error('Error loading users:', error);
+                      }}
+                    );
+                  }}
+
+                  loadStatusOptions(): void {{
+                    this.http.get<any>('/api/users/status-options').subscribe(
+                      data => {{
+                        this.statusOptions = data;
+                      }},
+                      error => {{
+                        console.error('Error loading options:', error);
+                      }}
+                    );
+                  }}
+
+                  onSubmit(formData: any): void {{
+                    this.http.post<any>('/api/users/create', formData).subscribe(
+                      response => {{
+                        console.log('User created:', response);
+                        this.loadUsers(); // Refresh list
+                      }},
+                      error => {{
+                        console.error('Error creating user:', error);
+                      }}
+                    );
+                  }}
+                }}
+                ```
+
+                WHEN TO ADD HTTP CALLS:
+                - Dropdowns/Select elements → HTTP GET for options in ngOnInit()
+                - Tables/Lists → HTTP GET for data in ngOnInit()
+                - Forms with submit button → HTTP POST in submit handler
+                - Search functionality → HTTP GET with query parameters
+                - Delete buttons → HTTP DELETE in click handler
+                - Update/Edit actions → HTTP PUT/PATCH in submit handler
+                - Any dynamic content display → HTTP GET for data
+
                 MOCK DATA REQUIREMENTS:
                 - Your component MUST have realistic mock data to show in the preview.
                 - Define properties in the class (e.g., tableData, userList, chartOptions) with proper interfaces or types.
@@ -141,14 +220,14 @@ class Generation:
                 
                 FILE AND IMPORT CONSISTENCY RULE (CRITICAL):
                 The path_name you provide controls EVERYTHING and must be IDENTICAL across:
-                1. FOLDER NAME: The component folder will be named exactly {path_name}/
+                1. FOLDER NAME: The component folder will be named exactly {{path_name}}/
                 2. FILE NAMES inside the folder:
-                   * {path_name}.component.ts
-                   * {path_name}.component.html
-                   * {path_name}.component.scss
-                3. IMPORTS inside ts_code MUST use the EXACT SAME {path_name}:
-                   * templateUrl: './{path_name}.component.html'
-                   * styleUrls: ['./{path_name}.component.scss']
+                   * {{path_name}}.component.ts
+                   * {{path_name}}.component.html
+                   * {{path_name}}.component.scss
+                3. IMPORTS inside ts_code MUST use the EXACT SAME {{path_name}}:
+                   * templateUrl: './{{path_name}}.component.html'
+                   * styleUrls: ['./{{path_name}}.component.scss']
                 
                 EXAMPLE - If path_name is "login-page":
                 ✅ CORRECT:
@@ -749,3 +828,364 @@ class Refiner:
             "user_request": user_request
         }
         return json.dumps(refiner_input, indent=2)
+
+
+class Integration:
+    """
+    Handles generation of Angular service layer files (service.ts)
+    that route HTTP requests from components to backend APIs.
+    """
+    
+    @staticmethod
+    def system_prompt(service_template: str = "") -> str:
+        """
+        System prompt for generating Angular service files with HTTP calls.
+        
+        Args:
+            service_template: Optional template/format for the service structure.
+                            Will be used in the future to provide exact format.
+        """
+        template_section = ""
+        if service_template:
+            template_section = f"""
+            SERVICE STRUCTURE TEMPLATE:
+            Use the following template as the exact format for the service:
+            
+            {service_template}
+            """
+        
+        return f"""You are an expert Angular developer creating service layer files.
+
+                Your task is to generate an Angular service (service.ts) that handles HTTP communication
+                between frontend components and the backend API.
+
+                CRITICAL INSTRUCTIONS:
+                1. Analyze the provided TypeScript component file to identify all data-driven interactions
+                2. Create HTTP GET/POST/PUT/DELETE methods for each interaction that requires backend data
+                3. Use Angular HttpClient for all HTTP operations
+                4. Follow proper dependency injection patterns
+                5. Include proper error handling for HTTP requests
+                6. Use RxJS Observables for all HTTP operations
+
+                {template_section}
+
+                COMPONENT ANALYSIS RULES:
+                When analyzing the component TS file, identify:
+                - Dropdown menus → Need HTTP GET to fetch options when component loads
+                - Forms with submit → Need HTTP POST to send form data
+                - Tables/Lists → Need HTTP GET to fetch data
+                - Search functionality → Need HTTP GET with query parameters
+                - Delete/Update actions → Need HTTP DELETE/PUT methods
+                - Any data binding that shows dynamic content → Need HTTP GET
+
+                ANGULAR SERVICE STRUCTURE:
+                ```typescript
+                import {{ Injectable }} from '@angular/core';
+                import {{ HttpClient, HttpHeaders, HttpParams }} from '@angular/common/http';
+                import {{ Observable, throwError }} from 'rxjs';
+                import {{ catchError, map }} from 'rxjs/operators';
+
+                @Injectable({{
+                  providedIn: 'root'
+                }})
+                export class YourServiceNameService {{
+                  
+                  private apiUrl = '/api'; // Base API URL - will be configured properly
+                  
+                  constructor(private http: HttpClient) {{ }}
+
+                  // GET method example
+                  getData(params?: any): Observable<any> {{
+                    return this.http.get<any>(`${{this.apiUrl}}/endpoint`, {{ params }})
+                      .pipe(
+                        map(response => response),
+                        catchError(this.handleError)
+                      );
+                  }}
+
+                  // POST method example
+                  postData(data: any): Observable<any> {{
+                    return this.http.post<any>(`${{this.apiUrl}}/endpoint`, data)
+                      .pipe(
+                        map(response => response),
+                        catchError(this.handleError)
+                      );
+                  }}
+
+                  private handleError(error: any) {{
+                    console.error('An error occurred:', error);
+                    return throwError(() => error);
+                  }}
+                }}
+                ```
+
+                NAMING CONVENTIONS:
+                - Service class name: {{ComponentName}}Service (e.g., UserManagementService)
+                - Service file name: {{component-name}}.service.ts (kebab-case)
+                - Method names: Should be descriptive (e.g., getUserList, submitLoginForm, deleteUser)
+
+                API ENDPOINT NAMING:
+                For now, use generic endpoint names based on functionality:
+                - /api/{{resource}}/list - for GET lists
+                - /api/{{resource}}/get - for GET single item
+                - /api/{{resource}}/create - for POST new item
+                - /api/{{resource}}/update - for PUT/PATCH update
+                - /api/{{resource}}/delete - for DELETE
+                
+                (These will be replaced with actual backend routes later)
+
+                OUTPUT FORMAT:
+                Return ONLY a valid JSON object with this structure:
+                {{
+                  "service_name": "ServiceClassName",
+                  "file_name": "kebab-case-name.service.ts",
+                  "service_code": "complete TypeScript service code as a string",
+                  "api_endpoints": [
+                    {{
+                      "method": "GET|POST|PUT|DELETE",
+                      "endpoint": "/api/endpoint/path",
+                      "description": "What this endpoint does",
+                      "service_method": "methodNameInService"
+                    }}
+                  ]
+                }}
+
+                The api_endpoints array will be used to generate the backend controller.
+
+                CRITICAL - JSON OUTPUT ONLY:
+                - Return ONLY the JSON object (no markdown, no extra text)
+                - Escape special characters: use \\n for newlines, \\" for quotes
+                - No code blocks, no explanations
+                """
+    
+    @staticmethod
+    def format_integration_user_prompt(component_name: str, ts_code: str, html_code: str = "") -> str:
+        """
+        Format the user prompt for service generation.
+        
+        Args:
+            component_name: Name of the component
+            ts_code: TypeScript component code
+            html_code: Optional HTML code for additional context
+        """
+        prompt = f"""Generate an Angular service for the component: {component_name}
+
+        --- COMPONENT TYPESCRIPT CODE ---
+        {ts_code}
+        """
+        
+        if html_code:
+            prompt += f"""
+        --- COMPONENT HTML CODE (for context) ---
+        {html_code}
+        """
+        
+        prompt += """
+
+        Please analyze the component and create a service file with all necessary HTTP methods.
+        Identify all places where data needs to be fetched from or sent to the backend.
+        """
+        
+        return prompt
+
+
+class Backend:
+    """
+    Handles generation of PHP backend controller with API methods.
+    """
+    
+    @staticmethod
+    def system_prompt(controller_template: str = "", base_class_name: str = "BaseController") -> str:
+        """
+        System prompt for generating PHP controller files.
+        
+        Args:
+            controller_template: Optional template/format for the controller structure.
+                               Will be used in the future to provide exact format.
+            base_class_name: Name of the base class that controller extends.
+        """
+        template_section = ""
+        if controller_template:
+            template_section = f"""
+            CONTROLLER STRUCTURE TEMPLATE:
+            Use the following template as the exact format for the controller:
+            
+            {controller_template}
+            """
+        
+        return f"""You are an expert PHP backend developer creating API controllers.
+
+                Your task is to generate a PHP controller class with API methods that correspond to
+                the HTTP requests defined in the Angular service layer.
+
+                CRITICAL INSTRUCTIONS:
+                1. Create a controller class that extends {base_class_name}
+                2. Generate API methods for each endpoint defined in the service layer
+                3. Each method should handle the HTTP request and return appropriate responses
+                4. Include proper error handling and validation
+                5. Use the base class methods for database operations (assumed to be available)
+
+                {template_section}
+
+                PHP CONTROLLER STRUCTURE (EXAMPLE - will be replaced with actual template):
+                ```php
+                <?php
+
+                class YourControllerName extends {base_class_name} {{
+                    
+                    public function __construct() {{
+                        parent::__construct();
+                        // Initialize any required properties
+                    }}
+
+                    /**
+                     * GET endpoint - Fetch list of items
+                     * @return array
+                     */
+                    public function getList() {{
+                        try {{
+                            // Use base class DB methods
+                            $data = $this->db->select('table_name', '*');
+                            return $this->jsonResponse($data);
+                        }} catch (Exception $e) {{
+                            return $this->errorResponse($e->getMessage());
+                        }}
+                    }}
+
+                    /**
+                     * POST endpoint - Create new item
+                     * @return array
+                     */
+                    public function create() {{
+                        try {{
+                            $input = $this->getPostData();
+                            // Validate input
+                            if (empty($input['required_field'])) {{
+                                return $this->errorResponse('Required field missing');
+                            }}
+                            // Insert into database
+                            $id = $this->db->insert('table_name', $input);
+                            return $this->jsonResponse(['id' => $id, 'message' => 'Created successfully']);
+                        }} catch (Exception $e) {{
+                            return $this->errorResponse($e->getMessage());
+                        }}
+                    }}
+
+                    // Helper methods can be added as needed
+                }}
+                ```
+
+                ASSUMPTIONS ABOUT BASE CLASS:
+                The {base_class_name} is assumed to have these methods available:
+                - Database methods: $this->db->select(), $this->db->insert(), $this->db->update(), $this->db->delete()
+                - Response methods: $this->jsonResponse($data), $this->errorResponse($message)
+                - Input methods: $this->getPostData(), $this->getQueryParams()
+                
+                (Exact method names will be provided in future template)
+
+                NAMING CONVENTIONS:
+                - Controller class name: {{ComponentName}}Controller (e.g., UserManagementController)
+                - Method names: Descriptive based on action (e.g., getUserList, createUser, updateUser, deleteUser)
+                - Follow camelCase for method names
+
+                DATABASE TABLE NAMING:
+                For now, use generic table names based on the resource:
+                - If managing users → 'users' table
+                - If managing products → 'products' table
+                - Use lowercase, plural form
+                
+                (Actual table names will be provided in future requirements)
+
+                OUTPUT FORMAT:
+                Return ONLY a valid JSON object with this structure:
+                {{
+                  "controller_name": "ControllerClassName",
+                  "file_name": "ControllerClassName.php",
+                  "controller_code": "complete PHP controller code as a string",
+                  "api_methods": [
+                    {{
+                      "method_name": "methodName",
+                      "http_method": "GET|POST|PUT|DELETE",
+                      "endpoint": "/api/endpoint/path",
+                      "description": "What this method does"
+                    }}
+                  ],
+                  "routes_config": [
+                    {{
+                      "route": "/api/endpoint/path",
+                      "controller": "ControllerClassName",
+                      "method": "methodName",
+                      "http_method": "GET|POST|PUT|DELETE"
+                    }}
+                  ]
+                }}
+
+                The routes_config will be used for the PHP routing layer configuration.
+
+                CRITICAL - JSON OUTPUT ONLY:
+                - Return ONLY the JSON object (no markdown, no extra text)
+                - Escape special characters properly for JSON
+                - No code blocks, no explanations
+                """
+    
+    @staticmethod
+    def format_backend_user_prompt(
+        component_name: str,
+        html_code: str,
+        ts_code: str,
+        service_code: str = "",
+        api_endpoints: list = None,
+        existing_controller: str = ""
+    ) -> str:
+        """
+        Format the user prompt for backend controller generation.
+        
+        Args:
+            component_name: Name of the component
+            html_code: HTML code
+            ts_code: TypeScript component code
+            service_code: Optional service code with HTTP calls
+            api_endpoints: List of API endpoints from service generation
+            existing_controller: Optional existing controller code to extend/modify
+        """
+        prompt = f"""Generate a PHP controller for the component: {component_name}
+
+        --- COMPONENT HTML CODE ---
+        {html_code}
+
+        --- COMPONENT TYPESCRIPT CODE ---
+        {ts_code}
+        """
+        
+        if service_code:
+            prompt += f"""
+        --- ANGULAR SERVICE CODE ---
+        {service_code}
+        """
+        
+        if api_endpoints:
+            endpoints_str = json.dumps(api_endpoints, indent=2)
+            prompt += f"""
+        --- REQUIRED API ENDPOINTS ---
+        {endpoints_str}
+        """
+        
+        if existing_controller:
+            prompt += f"""
+        --- EXISTING CONTROLLER CODE (for context/extension) ---
+        {existing_controller}
+        
+        NOTE: You may need to add new methods to this existing controller or create similar structure.
+        """
+        
+        prompt += """
+
+        Please generate a complete PHP controller with all necessary API methods.
+        Each method should:
+        1. Handle the corresponding HTTP request type (GET/POST/PUT/DELETE)
+        2. Perform appropriate database operations
+        3. Return proper JSON responses
+        4. Include error handling
+        """
+        
+        return prompt

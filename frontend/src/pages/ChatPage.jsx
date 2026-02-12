@@ -185,7 +185,7 @@ function ChatPage() {
       // Store components in context for ElementsPage
       updateAppData({
         components: data.components || [],
-        devRequest: devRequest.trim()
+        devRequest: devRequestValue.trim()
       })
 
       // Mark chat as complete when submission is successful

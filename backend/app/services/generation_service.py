@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 from app.services.llm_service import run_model
 from app.utils.parsers import extract_json_from_response
 from app.prompts import Generation, Chat
+from app.services.integration_service import IntegrationService
 
 class GenerationService:
     async def generate_page(self, page_request: str, components: List[Dict]) -> Optional[Dict]:

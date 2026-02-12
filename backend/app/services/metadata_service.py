@@ -79,13 +79,24 @@ class MetadataService:
         """
         Analyze components in a directory (recursively) and return metadata.
         """
+        print(f"Analyzing components from files: {temp_dir}")
+        
         components = self._discover_components(temp_dir)
+        print(f"Discovered {len(components)} components after filtering")
+        
         metadata_list = []
         
         for comp_info in components:
+            print(f"Analyzing component: {comp_info['base_name']}")
             meta = await self._analyze_single_component(comp_info, temp_dir)
+            
             if meta:
                 metadata_list.append(meta)
+                print(f"✓ Successfully analyzed: {comp_info['base_name']}")
+            else:
+                print(f"✗ Failed to analyze: {comp_info['base_name']}")
+        
+        print(f"Total metadata generated: {len(metadata_list)} components")
         
         return metadata_list
 
@@ -93,7 +104,11 @@ class MetadataService:
         ts_files = list(root_dir.rglob('*.component.ts'))
         ts_files = [f for f in ts_files if '.spec.' not in f.name]
         
+        print(f"Found {len(ts_files)} .component.ts files (excluding .spec files)")
+        
         components = []
+        filtered_out = []
+        
         for ts_file in ts_files:
             # Legacy-style filtering: Only accept components from 'common' or 'shared' folders
             try:
@@ -101,9 +116,11 @@ class MetadataService:
                 path_parts = [p.lower() for p in rel_path.parts]
                 
                 if 'common' not in path_parts and 'shared' not in path_parts:
+                    filtered_out.append((str(rel_path), "Missing 'common' or 'shared' in path"))
                     continue
-            except Exception:
+            except Exception as e:
                 # If path manipulation fails, skip safely
+                filtered_out.append((str(ts_file), f"Path error: {e}"))
                 continue
 
             base_name = ts_file.stem.replace('.component', '')
@@ -117,6 +134,12 @@ class MetadataService:
                 'html_file': html_file if html_file.exists() else None,
                 'scss_file': scss_file if scss_file.exists() else None
             })
+        
+        if filtered_out:
+            print(f"⚠ Filtered out {len(filtered_out)} components:")
+            for path, reason in filtered_out:
+                print(f"  - {path}: {reason}")
+        
         return components
 
     async def _analyze_single_component(self, comp_info: Dict, root_dir: Path) -> Optional[Dict]:

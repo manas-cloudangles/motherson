@@ -106,12 +106,12 @@ COMPONENT_README_FILE = BASE_DIR / "COMPONENT_METADATA_README.md"
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "35000"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_REGION = os.getenv("AWS_REGION", "us-east-1")
-AWS_PROFILE = os.getenv("AWS_PROFILE", "cloudangles-mlops")
+AWS_PROFILE = os.getenv("AWS_PROFILE", "codebendersdev")
 
 # LLM Provider Selection - Set to "bedrock" or "groq"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "bedrock")  # Options: "bedrock" or "groq"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")  # Your Groq API key
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")  # Groq model name
+GROQ_MODEL = os.getenv("GROQ_MODEL", "moonshotai/kimi-k2-instruct-0905")  # Groq model name
 
 # File extensions to process
 COMPONENT_FILE_EXTENSIONS = ['.ts', '.html', '.scss']

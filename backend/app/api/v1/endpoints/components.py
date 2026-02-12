@@ -37,11 +37,14 @@ async def upload_and_analyze(
         if not files:
             raise HTTPException(status_code=400, detail="No files uploaded")
 
+        print(f"Received {len(files)} files for analysis")
+        
         # Save page request
         workspace_service.save_page_request(pageRequest)
         
         # Create temp dir
         temp_dir = Path(tempfile.mkdtemp(prefix="angular_components_"))
+        print(f"Created temp directory: {temp_dir}")
         
         for file in files:
             relative_path = file.filename
@@ -52,6 +55,7 @@ async def upload_and_analyze(
             file_path.parent.mkdir(parents=True, exist_ok=True)
             content = await file.read()
             file_path.write_bytes(content)
+            print(f"  Saved: {relative_path}")
             
         # Analyze
         metadata = await metadata_service.analyze_components_from_files(temp_dir)
