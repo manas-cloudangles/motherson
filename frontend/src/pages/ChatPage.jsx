@@ -6,13 +6,22 @@ import './ChatPage.css'
 function ChatPage() {
   const navigate = useNavigate()
   const { markPageComplete, updateAppData, appData } = usePageProgress()
-  const folderRef = useRef(null) // Use ref for heavy file data
-  const [fileCount, setFileCount] = useState(0) // Track count for UI
-  const [folderStructure, setFolderStructure] = useState(null) // Track tree for UI
-  // Using uncontrolled textarea to avoid re-renders on every keystroke
+  
+  // Frontend (Angular components) refs and state
+  const frontendFolderRef = useRef(null)
+  const [frontendFileCount, setFrontendFileCount] = useState(0)
+  const [frontendFolderStructure, setFrontendFolderStructure] = useState(null)
+  const frontendFileInputRef = useRef(null)
+  
+  // Backend (PHP APIs) refs and state
+  const backendFolderRef = useRef(null)
+  const [backendFileCount, setBackendFileCount] = useState(0)
+  const [backendFolderStructure, setBackendFolderStructure] = useState(null)
+  const backendFileInputRef = useRef(null)
+  
+  // Common state
   const initialDevRequest = appData.devRequest || ''
   const [isLoading, setIsLoading] = useState(false)
-  const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
 
   // Auto-resize textarea
@@ -136,33 +145,60 @@ function ChatPage() {
     return renderFolderTree(folderStructure)
   }
 
-  const handleFolderChange = (e) => {
+  const handleFrontendFolderChange = (e) => {
     const files = Array.from(e.target.files)
-    folderRef.current = files
-    setFileCount(files.length)
-    setFolderStructure(buildFolderTree(files))
-    updateAppData({ folder: files })
+    frontendFolderRef.current = files
+    setFrontendFileCount(files.length)
+    setFrontendFolderStructure(buildFolderTree(files))
+    updateAppData({ frontendFolder: files })
+  }
+
+  const handleBackendFolderChange = (e) => {
+    const files = Array.from(e.target.files)
+    backendFolderRef.current = files
+    setBackendFileCount(files.length)
+    setBackendFolderStructure(buildFolderTree(files))
+    updateAppData({ backendFolder: files })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     const devRequestValue = textareaRef.current?.value?.trim() || ''
-    const currentFolder = folderRef.current
-    if (!currentFolder || currentFolder.length === 0 || !devRequestValue || isLoading) return
+    const frontendFiles = frontendFolderRef.current
+    const backendFiles = backendFolderRef.current
+    
+    // Require at least dev request and one set of files
+    if (!devRequestValue || isLoading) return
+    if ((!frontendFiles || frontendFiles.length === 0) && (!backendFiles || backendFiles.length === 0)) {
+      alert('Please upload at least frontend or backend files')
+      return
+    }
 
     setIsLoading(true)
     updateAppData({ devRequest: devRequestValue })
 
     try {
-      // Prepare FormData with files and page request
+      // Prepare FormData with both frontend and backend files
       const formData = new FormData()
-      currentFolder.forEach((file) => {
-        // Create a new File object with webkitRelativePath in the name if available
-        // This preserves the directory structure
-        const relativePath = file.webkitRelativePath || file.name
-        const fileWithPath = new File([file], relativePath, { type: file.type })
-        formData.append('files', fileWithPath)
-      })
+      
+      // Add frontend files
+      if (frontendFiles && frontendFiles.length > 0) {
+        frontendFiles.forEach((file) => {
+          const relativePath = file.webkitRelativePath || file.name
+          const fileWithPath = new File([file], relativePath, { type: file.type })
+          formData.append('frontendFiles', fileWithPath)
+        })
+      }
+      
+      // Add backend files
+      if (backendFiles && backendFiles.length > 0) {
+        backendFiles.forEach((file) => {
+          const relativePath = file.webkitRelativePath || file.name
+          const fileWithPath = new File([file], relativePath, { type: file.type })
+          formData.append('backendFiles', fileWithPath)
+        })
+      }
+      
       formData.append('pageRequest', devRequestValue)
 
       // Call backend API
@@ -182,9 +218,10 @@ function ChatPage() {
         throw new Error(data.message || 'Failed to analyze components')
       }
 
-      // Store components in context for ElementsPage
+      // Store both frontend and backend data in context for ElementsPage
       updateAppData({
-        components: data.components || [],
+        components: data.frontend_components || [],
+        backendApis: data.backend_apis || [],
         devRequest: devRequestValue.trim()
       })
 
@@ -194,7 +231,7 @@ function ChatPage() {
       // Navigate to elements page after processing is complete
       navigate('/elements')
     } catch (error) {
-      console.error('Error submitting folder and request:', error)
+      console.error('Error submitting folders and request:', error)
       alert(`Error: ${error.message}\n\nMake sure the backend server is running on http://localhost:5000`)
     } finally {
       setIsLoading(false)
@@ -207,52 +244,116 @@ function ChatPage() {
         {isLoading && (
           <div className="loading-overlay">
             <div className="loading-spinner"></div>
-            <p>Analyzing components... This may take a moment.</p>
+            <p>Analyzing components and APIs... This may take a moment.</p>
           </div>
         )}
-        <div
-          className={`folder-structure-container ${!folderStructure ? 'folder-upload-area' : ''}`}
-          onClick={() => !folderStructure && !isLoading && fileInputRef.current?.click()}
-        >
-          {folderStructure ? (
-            <>
-              <h3 className="folder-structure-title">Folder Structure</h3>
-              <div className="folder-structure-tree">
-                {renderFolderTreeWrapper()}
+        
+        {/* Split view: Frontend on left, Backend on right */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          {/* Frontend Upload Area */}
+          <div
+            className={`folder-structure-container ${!frontendFolderStructure ? 'folder-upload-area' : ''}`}
+            onClick={() => !frontendFolderStructure && !isLoading && frontendFileInputRef.current?.click()}
+            style={{ flex: 1 }}
+          >
+            {frontendFolderStructure ? (
+              <>
+                <h3 className="folder-structure-title">Frontend Components 🎨</h3>
+                <div className="folder-structure-tree">
+                  {(() => {
+                    renderedCount = 0
+                    return renderFolderTree(frontendFolderStructure)
+                  })()}
+                </div>
+              </>
+            ) : (
+              <div className="folder-upload-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>Upload Frontend (Angular)</p>
+                <small style={{ color: '#888', marginTop: '0.5rem' }}>Optional: HTML, SCSS, TS files</small>
               </div>
-            </>
-          ) : (
-            <div className="folder-upload-placeholder">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
-              <p>Please upload reference folder</p>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Backend Upload Area */}
+          <div
+            className={`folder-structure-container ${!backendFolderStructure ? 'folder-upload-area' : ''}`}
+            onClick={() => !backendFolderStructure && !isLoading && backendFileInputRef.current?.click()}
+            style={{ flex: 1 }}
+          >
+            {backendFolderStructure ? (
+              <>
+                <h3 className="folder-structure-title">Backend APIs 🐘</h3>
+                <div className="folder-structure-tree">
+                  {(() => {
+                    renderedCount = 0
+                    return renderFolderTree(backendFolderStructure)
+                  })()}
+                </div>
+              </>
+            ) : (
+              <div className="folder-upload-placeholder">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p>Upload Backend (PHP)</p>
+                <small style={{ color: '#888', marginTop: '0.5rem' }}>Optional: PHP API files</small>
+              </div>
+            )}
+          </div>
         </div>
+
         <form className="chat-input-form" onSubmit={handleSubmit}>
           <div className="chat-input-container">
+            {/* Hidden file inputs */}
             <input
-              ref={fileInputRef}
+              ref={frontendFileInputRef}
               type="file"
               webkitdirectory=""
               directory=""
               multiple
-              onChange={handleFolderChange}
+              onChange={handleFrontendFolderChange}
               className="chat-input file-input"
               disabled={isLoading}
               style={{ display: 'none' }}
             />
+            <input
+              ref={backendFileInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
+              onChange={handleBackendFolderChange}
+              className="chat-input file-input"
+              disabled={isLoading}
+              style={{ display: 'none' }}
+            />
+            
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => frontendFileInputRef.current?.click()}
+              className="folder-button"
+              disabled={isLoading}
+              style={{ marginRight: '0.5rem' }}
+            >
+              {frontendFileCount > 0 ? `Frontend: ${frontendFileCount} files` : 'Select Frontend'}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => backendFileInputRef.current?.click()}
               className="folder-button"
               disabled={isLoading}
             >
-              {fileCount > 0 ? `${fileCount} file(s) selected` : 'Select Folder'}
+              {backendFileCount > 0 ? `Backend: ${backendFileCount} files` : 'Select Backend'}
             </button>
+            
             <textarea
               ref={textareaRef}
               defaultValue={initialDevRequest}
@@ -265,7 +366,7 @@ function ChatPage() {
             <button
               type="submit"
               className="send-button"
-              disabled={!fileCount || fileCount === 0 || isLoading}
+              disabled={isLoading}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="22" y1="2" x2="11" y2="13"></line>

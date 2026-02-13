@@ -5,12 +5,14 @@ from pydantic import BaseModel
 
 from app.services.integration_service import IntegrationService
 from app.services.workspace_service import WorkspaceService
+from app.services.backend_api_service import BackendApiService
 from app.services.task_store import TaskStore
 
 router = APIRouter()
 
 integration_service = IntegrationService()
 workspace_service = WorkspaceService()
+backend_api_service = BackendApiService()
 task_store = TaskStore()
 
 
@@ -41,12 +43,31 @@ async def process_integration_task(
 ):
     """Background task to generate integration files."""
     try:
-        # Generate full stack (service + controller)
+        # Load existing backend APIs to leverage
+        all_backend_apis = backend_api_service.load_metadata()
+        required_apis = []
+        if all_backend_apis:
+            for api in all_backend_apis:
+                req = api.get('required', False)
+                is_req = False
+                if isinstance(req, bool):
+                    is_req = req
+                elif isinstance(req, str):
+                    is_req = req.lower() == 'true'
+                
+                if is_req:
+                    required_apis.append(api)
+        
+        if required_apis:
+            print(f"Integration: Leveraging {len(required_apis)} existing backend APIs")
+        
+        # Generate full stack (service + controller) with existing APIs context
         result = await integration_service.generate_full_stack(
             component_name,
             html_code,
             ts_code,
-            existing_controller
+            existing_controller,
+            required_apis if required_apis else None
         )
         
         if not result:

@@ -107,20 +107,14 @@ class MetadataService:
         print(f"Found {len(ts_files)} .component.ts files (excluding .spec files)")
         
         components = []
-        filtered_out = []
         
         for ts_file in ts_files:
-            # Legacy-style filtering: Only accept components from 'common' or 'shared' folders
+            # Accept ALL component files (no filtering by path)
             try:
                 rel_path = ts_file.relative_to(root_dir)
-                path_parts = [p.lower() for p in rel_path.parts]
-                
-                if 'common' not in path_parts and 'shared' not in path_parts:
-                    filtered_out.append((str(rel_path), "Missing 'common' or 'shared' in path"))
-                    continue
             except Exception as e:
                 # If path manipulation fails, skip safely
-                filtered_out.append((str(ts_file), f"Path error: {e}"))
+                print(f"⚠ Skipping file due to path error: {ts_file}: {e}")
                 continue
 
             base_name = ts_file.stem.replace('.component', '')
@@ -134,11 +128,6 @@ class MetadataService:
                 'html_file': html_file if html_file.exists() else None,
                 'scss_file': scss_file if scss_file.exists() else None
             })
-        
-        if filtered_out:
-            print(f"⚠ Filtered out {len(filtered_out)} components:")
-            for path, reason in filtered_out:
-                print(f"  - {path}: {reason}")
         
         return components
 

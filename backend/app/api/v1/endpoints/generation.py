@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from app.schemas.page import GeneratePageRequest, GeneratePageResponse
 from app.services.generation_service import GenerationService
 from app.services.metadata_service import MetadataService
+from app.services.backend_api_service import BackendApiService
 from app.services.workspace_service import WorkspaceService
 from app.services.audit_service import AuditService
 from app.services.task_store import TaskStore, TaskStatus
@@ -13,13 +14,14 @@ router = APIRouter()
 
 generation_service = GenerationService()
 metadata_service = MetadataService()
+backend_api_service = BackendApiService()
 workspace_service = WorkspaceService()
 task_store = TaskStore()
 
-async def process_generation_task(task_id: str, page_request: str, required_components: list):
+async def process_generation_task(task_id: str, page_request: str, required_components: list, required_apis: list = None):
     try:
-        # 1. Generate Draft
-        page_data = await generation_service.generate_page(page_request, required_components)
+        # 1. Generate Draft (with backend APIs context)
+        page_data = await generation_service.generate_page(page_request, required_components, required_apis or [])
         
         if not page_data:
             task_store.update_task_error(task_id, "Failed to generate page")
@@ -78,27 +80,43 @@ async def generate_page(request_data: GeneratePageRequest):
         if not page_request:
              raise HTTPException(status_code=400, detail="Page request is required")
              
+        # Load frontend components
         all_metadata = metadata_service.load_metadata()
-        if not all_metadata:
-             raise HTTPException(status_code=400, detail="No metadata available")
-             
         required_components = []
-        for comp in all_metadata:
-             req = comp.get('required', False)
-             is_req = False
-             if isinstance(req, bool):
-                 is_req = req
-             elif isinstance(req, str):
-                 is_req = req.lower() == 'true'
-             
-             if is_req:
-                 required_components.append(comp)
+        if all_metadata:
+            for comp in all_metadata:
+                req = comp.get('required', False)
+                is_req = False
+                if isinstance(req, bool):
+                    is_req = req
+                elif isinstance(req, str):
+                    is_req = req.lower() == 'true'
+                
+                if is_req:
+                    required_components.append(comp)
+        
+        # Load backend APIs
+        all_apis = backend_api_service.load_metadata()
+        required_apis = []
+        if all_apis:
+            for api in all_apis:
+                req = api.get('required', False)
+                is_req = False
+                if isinstance(req, bool):
+                    is_req = req
+                elif isinstance(req, str):
+                    is_req = req.lower() == 'true'
+                
+                if is_req:
+                    required_apis.append(api)
+        
+        print(f"Generation: {len(required_components)} frontend components, {len(required_apis)} backend APIs")
 
         # 2. Create Task
         task_id = task_store.create_task()
         
         # 3. Start Background Process
-        asyncio.create_task(process_generation_task(task_id, page_request, required_components))
+        asyncio.create_task(process_generation_task(task_id, page_request, required_components, required_apis))
         
         # 4. Return Task ID
         return {

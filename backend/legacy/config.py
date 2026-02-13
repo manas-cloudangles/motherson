@@ -27,7 +27,7 @@ COMPONENT_README_FILE = BASE_DIR / "COMPONENT_METADATA_README.md"
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "35000"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 LLM_REGION = os.getenv("AWS_REGION", "us-east-1")
-AWS_PROFILE = os.getenv("AWS_PROFILE", "cloudangles-mlops")
+AWS_PROFILE = os.getenv("AWS_PROFILE", "codebendersdev")
 
 # File extensions to process
 COMPONENT_FILE_EXTENSIONS = ['.ts', '.html', '.scss']

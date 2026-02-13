@@ -101,6 +101,8 @@ RECORD_DIR = SRC_DIR / "record"
 # Output files
 COMPONENT_METADATA_FILE = Path(__file__).parent / "component_metadata.json"
 COMPONENT_README_FILE = BASE_DIR / "COMPONENT_METADATA_README.md"
+BACKEND_API_METADATA_FILE = Path(__file__).parent / "backend_api_metadata.json"
+BACKEND_API_README_FILE = BASE_DIR / "BACKEND_API_METADATA_README.md"
 
 # LLM Configuration
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "35000"))
@@ -115,7 +117,8 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "moonshotai/kimi-k2-instruct-0905")  # Groq
 
 # File extensions to process
 COMPONENT_FILE_EXTENSIONS = ['.ts', '.html', '.scss']
-EXCLUDE_PATTERNS = ['*.spec.ts', '*.spec.js', 'node_modules', 'dist']
+BACKEND_FILE_EXTENSIONS = ['.php']
+EXCLUDE_PATTERNS = ['*.spec.ts', '*.spec.js', 'node_modules', 'dist', 'vendor']
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

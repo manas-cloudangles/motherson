@@ -88,7 +88,8 @@ class IntegrationService:
         ts_code: str,
         service_code: str = "",
         api_endpoints: List[Dict] = None,
-        existing_controller: str = ""
+        existing_controller: str = "",
+        existing_backend_apis: List[Dict] = None
     ) -> Optional[Dict]:
         """
         Generate PHP controller with API methods.
@@ -100,17 +101,56 @@ class IntegrationService:
             service_code: Optional Angular service code
             api_endpoints: Optional list of API endpoints from service generation
             existing_controller: Optional existing controller code to extend
+            existing_backend_apis: Optional list of existing backend APIs to leverage
             
         Returns:
             Dict containing controller_name, file_name, controller_code,
             api_methods, and routes_config, or None if generation fails
         """
         try:
+            # Build context from existing backend APIs
+            existing_apis_context = ""
+            if existing_backend_apis:
+                existing_apis_context = "\n\n═══════════════════════════════════════════════════════════════\n"
+                existing_apis_context += "EXISTING BACKEND APIs (REFERENCE)\n"
+                existing_apis_context += "═══════════════════════════════════════════════════════════════\n\n"
+                existing_apis_context += "The following PHP APIs already exist in the codebase. You can LEVERAGE and REUSE these existing endpoints:\n\n"
+                
+                for api in existing_backend_apis:
+                    existing_apis_context += f"API: {api.get('name', 'Unknown')}\n"
+                    existing_apis_context += f"File: {api.get('file_path', 'N/A')}\n"
+                    
+                    endpoints = api.get('endpoints', [])
+                    if endpoints:
+                        existing_apis_context += "Endpoints:\n"
+                        for endpoint in endpoints:
+                            method = endpoint.get('method', 'GET')
+                            path = endpoint.get('path', '/api/endpoint')
+                            func = endpoint.get('function_name', 'functionName')
+                            desc = endpoint.get('description', '')
+                            existing_apis_context += f"  - {method} {path} → {func}()\n"
+                            if desc:
+                                existing_apis_context += f"    {desc}\n"
+                    
+                    if api.get('php_code'):
+                        # Include a snippet of the existing PHP code for reference
+                        code_snippet = api['php_code'][:500] + "..." if len(api['php_code']) > 500 else api['php_code']
+                        existing_apis_context += f"\nCode Reference:\n```php\n{code_snippet}\n```\n"
+                    
+                    existing_apis_context += "---\n\n"
+                
+                existing_apis_context += "\nINSTRUCTIONS FOR USING EXISTING APIs:\n"
+                existing_apis_context += "- If an existing endpoint matches the needs of your new controller, REFERENCE or REUSE it\n"
+                existing_apis_context += "- You can extend existing controllers or create similar patterns\n"
+                existing_apis_context += "- Maintain consistency with existing API structures\n"
+                existing_apis_context += "- If creating new endpoints, follow the same naming and structure conventions\n"
+                existing_apis_context += "═══════════════════════════════════════════════════════════════\n\n"
+            
             system_prompt = Backend.system_prompt(
                 self.controller_template,
                 self.base_class_name
             )
-            user_message = Backend.format_backend_user_prompt(
+            user_message = existing_apis_context + Backend.format_backend_user_prompt(
                 component_name,
                 html_code,
                 ts_code,
@@ -133,7 +173,8 @@ class IntegrationService:
         component_name: str,
         html_code: str,
         ts_code: str,
-        existing_controller: str = ""
+        existing_controller: str = "",
+        existing_backend_apis: List[Dict] = None
     ) -> Optional[Dict]:
         """
         Generate both Angular service and PHP controller in one call.
@@ -144,6 +185,7 @@ class IntegrationService:
             html_code: HTML code
             ts_code: TypeScript component code
             existing_controller: Optional existing controller code
+            existing_backend_apis: Optional list of existing backend APIs to leverage
             
         Returns:
             Dict containing both service and controller data:
@@ -166,15 +208,19 @@ class IntegrationService:
                 print("Failed to generate Angular service")
                 return None
             
-            # Step 2: Generate PHP controller using service data
+            # Step 2: Generate PHP controller using service data and existing APIs
             print(f"Generating PHP controller for {component_name}...")
+            if existing_backend_apis:
+                print(f"  → Leveraging {len(existing_backend_apis)} existing backend APIs")
+            
             controller_data = await self.generate_php_controller(
                 component_name,
                 html_code,
                 ts_code,
                 service_data.get('service_code', ''),
                 service_data.get('api_endpoints', []),
-                existing_controller
+                existing_controller,
+                existing_backend_apis
             )
             
             if not controller_data:
